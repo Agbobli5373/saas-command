@@ -136,6 +136,42 @@ class User extends Authenticatable
     }
 
     /**
+     * Determine if the user belongs to a workspace.
+     */
+    public function belongsToWorkspace(Workspace $workspace): bool
+    {
+        return $this->workspaces()
+            ->where('workspaces.id', $workspace->id)
+            ->exists();
+    }
+
+    /**
+     * Resolve the user's role for a workspace.
+     */
+    public function workspaceRole(Workspace $workspace): ?WorkspaceRole
+    {
+        $role = $this->workspaces()
+            ->where('workspaces.id', $workspace->id)
+            ->value('workspace_user.role');
+
+        if (! is_string($role)) {
+            return null;
+        }
+
+        return WorkspaceRole::tryFrom($role);
+    }
+
+    /**
+     * Determine if the user can manage workspace members.
+     */
+    public function canManageWorkspaceMembers(Workspace $workspace): bool
+    {
+        $role = $this->workspaceRole($workspace);
+
+        return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
+    }
+
+    /**
      * Create the default personal workspace for the user.
      */
     public function provisionPersonalWorkspace(): Workspace

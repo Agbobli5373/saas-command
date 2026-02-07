@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Cashier\Billable;
 
 class Workspace extends Model
@@ -58,6 +59,14 @@ class Workspace extends Model
         return $this->belongsToMany(User::class, 'workspace_user')
             ->withPivot('role')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the invitations for the workspace.
+     */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(WorkspaceInvitation::class);
     }
 
     /**
