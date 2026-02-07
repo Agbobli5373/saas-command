@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\BillingCheckoutRequest;
 use App\Http\Requests\Settings\BillingSwapRequest;
+use App\Models\User;
 use App\Services\Billing\BillingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class BillingController extends Controller
     /**
      * Show the billing settings page.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request, BillingService $billing): Response
     {
         $user = $request->user();
         $subscription = $user?->subscription('default');
@@ -31,6 +32,7 @@ class BillingController extends Controller
             'isSubscribed' => $user?->subscribed('default') ?? false,
             'onGracePeriod' => $subscription?->onGracePeriod() ?? false,
             'endsAt' => $subscription?->ends_at?->toIso8601String(),
+            'invoices' => $user === null ? [] : $this->safeInvoices($user, $billing),
         ]);
     }
 
@@ -139,5 +141,27 @@ class BillingController extends Controller
         );
 
         return $plans;
+    }
+
+    /**
+     * @return array<int, array{
+     *     id: string,
+     *     number: string|null,
+     *     status: string,
+     *     total: string,
+     *     amountPaid: string,
+     *     date: string,
+     *     currency: string,
+     *     hostedInvoiceUrl: string|null,
+     *     invoicePdfUrl: string|null
+     * }>
+     */
+    private function safeInvoices(User $user, BillingService $billing): array
+    {
+        try {
+            return $billing->invoices($user, 12);
+        } catch (Throwable) {
+            return [];
+        }
     }
 }

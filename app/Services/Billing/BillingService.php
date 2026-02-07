@@ -10,6 +10,21 @@ interface BillingService
 
     public function billingPortal(User $user, string $returnUrl): string;
 
+    /**
+     * @return array<int, array{
+     *     id: string,
+     *     number: string|null,
+     *     status: string,
+     *     total: string,
+     *     amountPaid: string,
+     *     date: string,
+     *     currency: string,
+     *     hostedInvoiceUrl: string|null,
+     *     invoicePdfUrl: string|null
+     * }>
+     */
+    public function invoices(User $user, int $limit = 10): array;
+
     public function swap(User $user, string $priceId): void;
 
     public function cancel(User $user): void;

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\Billing\BillingService;
+use Inertia\Testing\AssertableInertia as Assert;
 use Mockery\MockInterface;
 
 beforeEach(function () {
@@ -19,6 +20,39 @@ test('billing settings page is displayed', function () {
         ->get(route('billing.edit'));
 
     $response->assertOk();
+});
+
+test('billing settings page shares invoice history', function () {
+    $user = User::factory()->create();
+
+    $this->mock(BillingService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('invoices')
+            ->once()
+            ->andReturn([
+                [
+                    'id' => 'in_test_123',
+                    'number' => 'INV-0001',
+                    'status' => 'paid',
+                    'total' => '$29.00',
+                    'amountPaid' => '$29.00',
+                    'date' => '2026-02-07',
+                    'currency' => 'USD',
+                    'hostedInvoiceUrl' => 'https://example.test/invoice',
+                    'invoicePdfUrl' => null,
+                ],
+            ]);
+    });
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('settings/billing')
+        ->has('invoices', 1)
+        ->where('invoices.0.id', 'in_test_123')
+        ->where('invoices.0.status', 'paid')
+    );
 });
 
 test('guests are redirected from billing settings page', function () {
