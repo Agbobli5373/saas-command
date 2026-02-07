@@ -3,6 +3,7 @@
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
+use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
@@ -129,6 +130,8 @@ test('workspace members cannot invite teammates', function () {
 });
 
 test('invited user can accept invitation with matching email', function () {
+    Notification::fake();
+
     $owner = User::factory()->create();
     $workspace = $owner->activeWorkspace();
     $workspace->subscriptions()->create([
@@ -175,6 +178,13 @@ test('invited user can accept invitation with matching email', function () {
         'stripe_id' => 'sub_invite_accept_123',
         'quantity' => 2,
     ]);
+
+    Notification::assertSentTo(
+        $owner,
+        WorkspaceMemberJoinedNotification::class,
+        fn (WorkspaceMemberJoinedNotification $notification): bool => $notification->workspaceName === $workspace->name
+            && $notification->memberName === $invitedUser->name,
+    );
 });
 
 test('invitation cannot be accepted by a different email address', function () {
