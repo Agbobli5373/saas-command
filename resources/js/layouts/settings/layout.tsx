@@ -7,6 +7,7 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
+import { index as notificationsIndex } from '@/routes/notifications';
 import { edit } from '@/routes/profile';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
@@ -36,6 +37,11 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Billing',
         href: editBilling(),
+        icon: null,
+    },
+    {
+        title: 'Notifications',
+        href: notificationsIndex(),
         icon: null,
     },
 ];
