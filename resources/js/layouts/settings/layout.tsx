@@ -8,6 +8,7 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editBilling } from '@/routes/billing';
 import { index as notificationsIndex } from '@/routes/notifications';
+import { show as operationsShow } from '@/routes/operations';
 import { edit } from '@/routes/profile';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
@@ -42,6 +43,11 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Notifications',
         href: notificationsIndex(),
+        icon: null,
+    },
+    {
+        title: 'Operations',
+        href: operationsShow(),
         icon: null,
     },
 ];
