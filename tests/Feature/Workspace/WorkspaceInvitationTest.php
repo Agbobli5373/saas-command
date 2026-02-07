@@ -126,6 +126,37 @@ test('workspace invitation creation is blocked when seat limit is reached', func
     ]);
 });
 
+test('workspace invitation creation is blocked when monthly invitation usage limit is reached', function () {
+    config()->set('services.stripe.plans.free.limits.team_invitations_per_month', 1);
+
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    WorkspaceUsageCounter::query()->create([
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'period_start' => now()->startOfMonth()->toDateString(),
+        'used' => 1,
+        'quota' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($owner)
+        ->from(route('workspace'))
+        ->post(route('workspaces.invitations.store'), [
+            'email' => 'blocked-usage@example.com',
+            'role' => WorkspaceRole::Member->value,
+        ]);
+
+    $response->assertRedirect(route('workspace'));
+    $response->assertSessionHas('status', fn (string $status): bool => str_contains($status, 'Monthly invitation limit reached'));
+
+    $this->assertDatabaseMissing('workspace_invitations', [
+        'workspace_id' => $workspace->id,
+        'email' => 'blocked-usage@example.com',
+    ]);
+});
+
 test('workspace invitation creation requires plan feature flag', function () {
     config()->set('services.stripe.plans.free.feature_flags', []);
 

@@ -5,7 +5,7 @@ namespace App\Policies;
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Billing\PlanService;
+use App\Services\Billing\WorkspaceEntitlementService;
 
 class WorkspacePolicy
 {
@@ -30,13 +30,8 @@ class WorkspacePolicy
      */
     public function inviteMembers(User $user, Workspace $workspace): bool
     {
-        $role = $user->workspaceRole($workspace);
-
-        if (! in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true)) {
-            return false;
-        }
-
-        return app(PlanService::class)->workspaceHasFeature($workspace, 'team_invitations');
+        return app(WorkspaceEntitlementService::class)
+            ->inviteMembers($user, $workspace, $workspace->pendingInvitationCount())['allowed'];
     }
 
     /**

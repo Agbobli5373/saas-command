@@ -138,6 +138,35 @@ test('workspace page shares metered usage summary for the current month', functi
         ->where('usageMetrics.0.used', 2)
         ->where('usageMetrics.0.quota', 5)
         ->where('usageMetrics.0.remaining', 3)
+        ->where('canManageInvitations', true)
+        ->where('canInviteMembers', true)
+        ->where('inviteEntitlement.reasonCode', 'ok')
+    );
+});
+
+test('workspace page shares seat entitlement guard state when invite capacity is reached', function () {
+    config()->set('services.stripe.default_plan', 'free');
+    config()->set('services.stripe.plans.free.feature_flags', ['team_invitations']);
+    config()->set('services.stripe.plans.free.limits.seats', 2);
+
+    $owner = User::factory()->create([
+        'onboarding_completed_at' => now(),
+    ]);
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($owner)
+        ->get(route('workspace'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('canManageInvitations', true)
+        ->where('canInviteMembers', false)
+        ->where('inviteEntitlement.reasonCode', 'seat_limit_reached')
+        ->where('hasReachedSeatLimit', true)
+        ->where('remainingSeatCapacity', 0)
     );
 });
 

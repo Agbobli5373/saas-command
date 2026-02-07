@@ -9,6 +9,7 @@ use App\Http\Requests\Workspace\TransferWorkspaceOwnershipRequest;
 use App\Http\Requests\Workspace\UpdateWorkspaceMemberRoleRequest;
 use App\Models\User;
 use App\Services\Billing\PlanService;
+use App\Services\Billing\WorkspaceEntitlementService;
 use App\Services\Usage\UsageMeteringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +21,12 @@ class WorkspaceController extends Controller
     /**
      * Show the current workspace page.
      */
-    public function show(Request $request, PlanService $plans, UsageMeteringService $usage): Response
-    {
+    public function show(
+        Request $request,
+        PlanService $plans,
+        UsageMeteringService $usage,
+        WorkspaceEntitlementService $entitlements
+    ): Response {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
         abort_if($workspace === null, 403);
@@ -46,6 +51,7 @@ class WorkspaceController extends Controller
         $billedSeatCount = max(1, (int) ($workspace->subscription('default')?->quantity ?? $seatCount));
         $pendingInvitationCount = $workspace->pendingInvitationCount();
         $currentPlan = $plans->resolveWorkspacePlan($workspace);
+        $inviteMembers = $entitlements->inviteMembers($user, $workspace, $pendingInvitationCount);
 
         $pendingInvitations = $workspace->invitations()
             ->pending()
@@ -73,14 +79,22 @@ class WorkspaceController extends Controller
             ],
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
-            'canInviteMembers' => $user->can('inviteMembers', $workspace),
+            'canInviteMembers' => $inviteMembers['allowed'],
+            'canManageInvitations' => $inviteMembers['hasInviteRole'],
+            'inviteEntitlement' => [
+                'reasonCode' => $inviteMembers['reasonCode'],
+                'message' => $inviteMembers['message'],
+                'usageQuota' => $inviteMembers['usageQuota'],
+                'usageUsed' => $inviteMembers['usageUsed'],
+                'usageRemaining' => $inviteMembers['usageRemaining'],
+            ],
             'canManageMembers' => $user->can('manageMembers', $workspace),
             'canTransferOwnership' => $user->can('transferOwnership', $workspace),
             'currentUserId' => $user->id,
             'seatCount' => $seatCount,
-            'seatLimit' => $plans->seatLimit($workspace),
-            'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
-            'hasReachedSeatLimit' => $plans->hasReachedSeatLimit($workspace, $pendingInvitationCount),
+            'seatLimit' => $inviteMembers['seatLimit'],
+            'remainingSeatCapacity' => $inviteMembers['remainingSeatCapacity'],
+            'hasReachedSeatLimit' => $inviteMembers['hasReachedSeatLimit'],
             'billedSeatCount' => $billedSeatCount,
             'usagePeriod' => $usage->currentPeriodMeta(),
             'usageMetrics' => $usage->currentPeriodUsage($workspace),

@@ -65,6 +65,19 @@ type UsageMetric = {
     isExceeded: boolean;
 };
 
+type InviteEntitlement = {
+    reasonCode:
+        | 'ok'
+        | 'insufficient_role'
+        | 'feature_unavailable'
+        | 'seat_limit_reached'
+        | 'usage_limit_reached';
+    message: string | null;
+    usageQuota: number | null;
+    usageUsed: number;
+    usageRemaining: number | null;
+};
+
 type WorkspaceProps = {
     status?: string;
     workspace: WorkspaceSummary;
@@ -72,6 +85,8 @@ type WorkspaceProps = {
     members: WorkspaceMember[];
     pendingInvitations: PendingInvitation[];
     canInviteMembers: boolean;
+    canManageInvitations: boolean;
+    inviteEntitlement: InviteEntitlement;
     canManageMembers: boolean;
     canTransferOwnership: boolean;
     currentUserId: number;
@@ -91,6 +106,8 @@ export default function Workspace({
     members,
     pendingInvitations,
     canInviteMembers,
+    canManageInvitations,
+    inviteEntitlement,
     canManageMembers,
     canTransferOwnership,
     currentUserId,
@@ -102,7 +119,7 @@ export default function Workspace({
     usagePeriod,
     usageMetrics,
 }: WorkspaceProps) {
-    const canSubmitInvites = canInviteMembers && !hasReachedSeatLimit;
+    const canSubmitInvites = canInviteMembers;
     const ownershipCandidates = members.filter((member) => !member.isOwner);
 
     return (
@@ -278,7 +295,7 @@ export default function Workspace({
                     </Card>
                 ) : null}
 
-                {canInviteMembers ? (
+                {canManageInvitations ? (
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -290,12 +307,12 @@ export default function Workspace({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {hasReachedSeatLimit && seatLimit !== null ? (
+                            {!canInviteMembers && inviteEntitlement.message ? (
                                 <Alert>
                                     <CircleAlert className="h-4 w-4" />
-                                    <AlertTitle>Seat limit reached</AlertTitle>
+                                    <AlertTitle>Invitations unavailable</AlertTitle>
                                     <AlertDescription>
-                                        This plan allows up to {seatLimit} seats. Upgrade to invite more teammates.
+                                        {inviteEntitlement.message}
                                     </AlertDescription>
                                 </Alert>
                             ) : null}

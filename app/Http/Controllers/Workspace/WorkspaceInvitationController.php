@@ -8,6 +8,7 @@ use App\Models\WorkspaceInvitation;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
 use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use App\Services\Billing\PlanService;
+use App\Services\Billing\WorkspaceEntitlementService;
 use App\Services\Usage\UsageMeteringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class WorkspaceInvitationController extends Controller
      */
     public function store(
         StoreWorkspaceInvitationRequest $request,
-        PlanService $plans,
+        WorkspaceEntitlementService $entitlements,
         UsageMeteringService $usage
     ): RedirectResponse {
         $user = $request->user();
@@ -32,7 +33,19 @@ class WorkspaceInvitationController extends Controller
             return back()->with('status', 'No active workspace selected.');
         }
 
-        $this->authorize('inviteMembers', $workspace);
+        $inviteMembers = $entitlements->inviteMembers(
+            user: $user,
+            workspace: $workspace,
+            pendingInvitations: $workspace->pendingInvitationCount(),
+        );
+
+        if (! $inviteMembers['allowed']) {
+            if (in_array($inviteMembers['reasonCode'], ['insufficient_role', 'feature_unavailable'], true)) {
+                abort(403);
+            }
+
+            return back()->with('status', $inviteMembers['message'] ?? 'Invitations are currently unavailable.');
+        }
 
         $email = Str::lower(trim((string) $request->validated('email')));
         $role = (string) $request->validated('role');
@@ -43,23 +56,6 @@ class WorkspaceInvitationController extends Controller
 
         if ($alreadyMember) {
             return back()->with('status', 'This user is already a member of your workspace.');
-        }
-
-        $pendingInvitationCount = $workspace->pendingInvitationCount();
-
-        if ($plans->hasReachedSeatLimit($workspace, $pendingInvitationCount)) {
-            $currentPlan = $plans->resolveWorkspacePlan($workspace);
-            $seatLimit = $plans->seatLimit($workspace);
-
-            if ($seatLimit !== null && is_array($currentPlan)) {
-                return back()->with('status', sprintf(
-                    '%s plan allows up to %d seats. Upgrade to invite more teammates.',
-                    $currentPlan['title'],
-                    $seatLimit
-                ));
-            }
-
-            return back()->with('status', 'Workspace seat limit reached. Upgrade to invite more teammates.');
         }
 
         $workspace->invitations()
