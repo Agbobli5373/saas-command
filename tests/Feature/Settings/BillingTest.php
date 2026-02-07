@@ -182,8 +182,9 @@ test('unsubscribed users are redirected from workspace to billing settings', fun
 
 test('subscribed users can access workspace', function () {
     $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
 
-    $user->subscriptions()->create([
+    $workspace->subscriptions()->create([
         'type' => 'default',
         'stripe_id' => 'sub_test_123',
         'stripe_status' => 'active',

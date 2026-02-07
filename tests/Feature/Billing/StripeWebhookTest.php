@@ -55,9 +55,11 @@ test('duplicate webhook event is idempotent', function () {
 });
 
 test('invoice payment failed event is flagged as action required', function () {
-    $user = User::factory()->create([
+    $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
+    $workspace->forceFill([
         'stripe_id' => 'cus_test_123',
-    ]);
+    ])->save();
 
     Notification::fake();
 
@@ -75,9 +77,11 @@ test('invoice payment failed event is flagged as action required', function () {
 });
 
 test('invoice payment failed event stores an in-app database notification', function () {
-    $user = User::factory()->create([
+    $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
+    $workspace->forceFill([
         'stripe_id' => 'cus_test_123',
-    ]);
+    ])->save();
 
     $payload = stripeWebhookPayload('evt_test_invoice_2', 'invoice.payment_failed');
 
@@ -91,9 +95,11 @@ test('invoice payment failed event stores an in-app database notification', func
 });
 
 test('invoice payment failed event is resolved by a later paid event', function () {
-    User::factory()->create([
+    $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
+    $workspace->forceFill([
         'stripe_id' => 'cus_test_123',
-    ]);
+    ])->save();
 
     $this->postJson(route('cashier.webhook'), stripeWebhookPayload('evt_failed_1', 'invoice.payment_failed'))->assertOk();
     $this->postJson(route('cashier.webhook'), stripeWebhookPayload('evt_paid_1', 'invoice.paid'))->assertOk();
