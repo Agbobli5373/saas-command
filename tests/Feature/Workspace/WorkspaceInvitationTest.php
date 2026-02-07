@@ -2,6 +2,7 @@
 
 use App\Enums\WorkspaceRole;
 use App\Models\User;
+use App\Models\WorkspaceUsageCounter;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
 use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use Illuminate\Support\Facades\Notification;
@@ -9,6 +10,13 @@ use Illuminate\Support\Str;
 
 beforeEach(function () {
     config()->set('services.stripe.default_plan', 'free');
+    config()->set('services.stripe.usage.metrics', [
+        'team_invitations_sent' => [
+            'title' => 'Team Invitations',
+            'description' => 'Invitations sent to teammates this month.',
+            'limit_key' => 'team_invitations_per_month',
+        ],
+    ]);
 
     config()->set('services.stripe.plans', [
         'free' => [
@@ -19,7 +27,10 @@ beforeEach(function () {
             'description' => 'Free plan',
             'features' => ['Feature Free'],
             'feature_flags' => ['team_invitations'],
-            'limits' => ['seats' => 3],
+            'limits' => [
+                'seats' => 3,
+                'team_invitations_per_month' => 6,
+            ],
             'highlighted' => false,
         ],
         'starter_monthly' => [
@@ -31,7 +42,10 @@ beforeEach(function () {
             'description' => 'Monthly plan',
             'features' => ['Feature A'],
             'feature_flags' => ['team_invitations'],
-            'limits' => ['seats' => null],
+            'limits' => [
+                'seats' => null,
+                'team_invitations_per_month' => null,
+            ],
             'highlighted' => true,
         ],
     ]);
@@ -59,6 +73,22 @@ test('workspace owners can invite teammates by email', function () {
         'role' => WorkspaceRole::Admin->value,
         'accepted_at' => null,
     ]);
+
+    $this->assertDatabaseHas('workspace_usage_events', [
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'quantity' => 1,
+        'period_start' => now()->startOfMonth()->toDateString(),
+    ]);
+
+    $usageCounter = WorkspaceUsageCounter::query()
+        ->where('workspace_id', $workspace->id)
+        ->where('metric_key', 'team_invitations_sent')
+        ->first();
+
+    expect($usageCounter)->not->toBeNull()
+        ->and($usageCounter?->used)->toBe(1)
+        ->and($usageCounter?->quota)->toBe(6);
 
     Notification::assertSentOnDemand(
         WorkspaceInvitationNotification::class,

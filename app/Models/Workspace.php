@@ -79,6 +79,22 @@ class Workspace extends Model
     }
 
     /**
+     * Get monthly usage counters for this workspace.
+     */
+    public function usageCounters(): HasMany
+    {
+        return $this->hasMany(WorkspaceUsageCounter::class);
+    }
+
+    /**
+     * Get usage events for this workspace.
+     */
+    public function usageEvents(): HasMany
+    {
+        return $this->hasMany(WorkspaceUsageEvent::class);
+    }
+
+    /**
      * Get the count of pending invitations.
      */
     public function pendingInvitationCount(): int

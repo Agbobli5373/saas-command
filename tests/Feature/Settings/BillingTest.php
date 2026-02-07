@@ -4,12 +4,20 @@ use App\Enums\WorkspaceRole;
 use App\Models\BillingAuditEvent;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
+use App\Models\WorkspaceUsageCounter;
 use App\Services\Billing\BillingService;
 use Inertia\Testing\AssertableInertia as Assert;
 use Mockery\MockInterface;
 
 beforeEach(function () {
     config()->set('services.stripe.default_plan', 'free');
+    config()->set('services.stripe.usage.metrics', [
+        'team_invitations_sent' => [
+            'title' => 'Team Invitations',
+            'description' => 'Invitations sent to teammates this month.',
+            'limit_key' => 'team_invitations_per_month',
+        ],
+    ]);
 
     config()->set('services.stripe.plans', [
         'free' => [
@@ -20,7 +28,10 @@ beforeEach(function () {
             'description' => 'Free plan',
             'features' => ['Feature Free'],
             'feature_flags' => ['team_invitations'],
-            'limits' => ['seats' => 3],
+            'limits' => [
+                'seats' => 3,
+                'team_invitations_per_month' => 8,
+            ],
             'highlighted' => false,
         ],
         'starter_monthly' => [
@@ -32,7 +43,10 @@ beforeEach(function () {
             'description' => 'Monthly plan',
             'features' => ['Feature A'],
             'feature_flags' => ['team_invitations'],
-            'limits' => ['seats' => null],
+            'limits' => [
+                'seats' => null,
+                'team_invitations_per_month' => null,
+            ],
             'highlighted' => false,
         ],
         'starter_yearly' => [
@@ -44,7 +58,10 @@ beforeEach(function () {
             'description' => 'Yearly plan',
             'features' => ['Feature B'],
             'feature_flags' => ['team_invitations'],
-            'limits' => ['seats' => null],
+            'limits' => [
+                'seats' => null,
+                'team_invitations_per_month' => null,
+            ],
             'highlighted' => true,
         ],
     ]);
@@ -60,6 +77,44 @@ test('billing settings page is displayed', function () {
         ->get(route('billing.edit'));
 
     $response->assertOk();
+});
+
+test('billing usage summary only includes counters from the current month', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    WorkspaceUsageCounter::query()->create([
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'period_start' => now()->startOfMonth()->toDateString(),
+        'used' => 3,
+        'quota' => 8,
+    ]);
+
+    WorkspaceUsageCounter::query()->create([
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'period_start' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+        'used' => 11,
+        'quota' => 8,
+    ]);
+
+    $this->mock(BillingService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('invoices')
+            ->once()
+            ->andReturn([]);
+    });
+
+    $response = $this
+        ->actingAs($owner)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('usageMetrics.0.key', 'team_invitations_sent')
+        ->where('usageMetrics.0.used', 3)
+        ->where('usageMetrics.0.quota', 8)
+        ->where('usageMetrics.0.remaining', 5)
+    );
 });
 
 test('billing settings page shares plan metadata and invoice history', function () {
@@ -98,6 +153,11 @@ test('billing settings page shares plan metadata and invoice history', function 
         ->where('seatLimit', 3)
         ->where('remainingSeatCapacity', 2)
         ->where('billedSeatCount', 1)
+        ->where('usagePeriod.start', now()->startOfMonth()->toDateString())
+        ->has('usageMetrics', 1)
+        ->where('usageMetrics.0.key', 'team_invitations_sent')
+        ->where('usageMetrics.0.quota', 8)
+        ->where('usageMetrics.0.used', 0)
         ->has('invoices', 1)
         ->where('invoices.0.id', 'in_test_123')
         ->where('invoices.0.invoicePdfUrl', 'https://example.test/invoice.pdf')

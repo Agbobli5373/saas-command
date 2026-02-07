@@ -3,6 +3,7 @@
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceUsageCounter;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('creating a user provisions a personal workspace', function () {
@@ -93,6 +94,50 @@ test('dashboard shares active workspace context for authenticated users', functi
     $response->assertInertia(fn (Assert $page) => $page
         ->where('auth.current_workspace.id', $workspace->id)
         ->has('auth.workspaces', 2)
+    );
+});
+
+test('workspace page shares metered usage summary for the current month', function () {
+    config()->set('services.stripe.usage.metrics', [
+        'team_invitations_sent' => [
+            'title' => 'Team Invitations',
+            'description' => 'Invitations sent to teammates this month.',
+            'limit_key' => 'team_invitations_per_month',
+        ],
+    ]);
+    config()->set('services.stripe.plans.free.limits.team_invitations_per_month', 5);
+
+    $owner = User::factory()->create([
+        'onboarding_completed_at' => now(),
+    ]);
+    $workspace = $owner->activeWorkspace();
+
+    WorkspaceUsageCounter::query()->create([
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'period_start' => now()->startOfMonth()->toDateString(),
+        'used' => 2,
+        'quota' => 5,
+    ]);
+
+    WorkspaceUsageCounter::query()->create([
+        'workspace_id' => $workspace->id,
+        'metric_key' => 'team_invitations_sent',
+        'period_start' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+        'used' => 9,
+        'quota' => 5,
+    ]);
+
+    $response = $this
+        ->actingAs($owner)
+        ->get(route('workspace'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('usagePeriod.start', now()->startOfMonth()->toDateString())
+        ->where('usageMetrics.0.key', 'team_invitations_sent')
+        ->where('usageMetrics.0.used', 2)
+        ->where('usageMetrics.0.quota', 5)
+        ->where('usageMetrics.0.remaining', 3)
     );
 });
 

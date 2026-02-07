@@ -17,7 +17,7 @@ class PlanService
      *     description: string,
      *     features: array<int, string>,
      *     featureFlags: array<int, string>,
-     *     limits: array{seats: int|null},
+     *     limits: array<string, int|null>,
      *     highlighted: bool
      * }>
      */
@@ -50,9 +50,7 @@ class PlanService
                 'description' => $this->stringValue($plan['description'] ?? null) ?? '',
                 'features' => $this->stringList($plan['features'] ?? []),
                 'featureFlags' => $this->stringList($plan['feature_flags'] ?? []),
-                'limits' => [
-                    'seats' => $this->intOrNull($plan['limits']['seats'] ?? null),
-                ],
+                'limits' => $this->limits($plan['limits'] ?? []),
                 'highlighted' => (bool) ($plan['highlighted'] ?? false),
             ];
         }
@@ -71,7 +69,7 @@ class PlanService
      *     description: string,
      *     features: array<int, string>,
      *     featureFlags: array<int, string>,
-     *     limits: array{seats: int|null},
+     *     limits: array<string, int|null>,
      *     highlighted: bool
      * }>
      */
@@ -93,7 +91,7 @@ class PlanService
      *     description: string,
      *     features: array<int, string>,
      *     featureFlags: array<int, string>,
-     *     limits: array{seats: int|null},
+     *     limits: array<string, int|null>,
      *     highlighted: bool
      * }|null
      */
@@ -113,7 +111,7 @@ class PlanService
      *     description: string,
      *     features: array<int, string>,
      *     featureFlags: array<int, string>,
-     *     limits: array{seats: int|null},
+     *     limits: array<string, int|null>,
      *     highlighted: bool
      * }|null
      */
@@ -190,7 +188,7 @@ class PlanService
 
     public function seatLimit(Workspace $workspace): ?int
     {
-        return $this->resolveWorkspacePlan($workspace)['limits']['seats'] ?? null;
+        return $this->workspaceLimit($workspace, 'seats');
     }
 
     public function hasReachedSeatLimit(Workspace $workspace, int $pendingInvitations = 0): bool
@@ -232,6 +230,21 @@ class PlanService
         }
 
         return in_array($featureFlag, $plan['featureFlags'], true);
+    }
+
+    public function workspaceLimit(Workspace $workspace, string $limitKey): ?int
+    {
+        if ($limitKey === '') {
+            return null;
+        }
+
+        $plan = $this->resolveWorkspacePlan($workspace);
+
+        if ($plan === null || ! is_array($plan['limits'] ?? null)) {
+            return null;
+        }
+
+        return $this->intOrNull($plan['limits'][$limitKey] ?? null);
     }
 
     /**
@@ -297,6 +310,34 @@ class PlanService
             ->map(static fn (string $item): string => trim($item))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, int|null>
+     */
+    private function limits(mixed $value): array
+    {
+        if (! is_iterable($value)) {
+            return [];
+        }
+
+        $limits = [];
+
+        foreach ($value as $limitKey => $limitValue) {
+            if (! is_string($limitKey)) {
+                continue;
+            }
+
+            $limitKey = trim($limitKey);
+
+            if ($limitKey === '') {
+                continue;
+            }
+
+            $limits[$limitKey] = $this->intOrNull($limitValue);
+        }
+
+        return $limits;
     }
 
     private function intOrNull(mixed $value): ?int

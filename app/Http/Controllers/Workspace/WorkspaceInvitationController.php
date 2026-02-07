@@ -8,18 +8,23 @@ use App\Models\WorkspaceInvitation;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
 use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use App\Services\Billing\PlanService;
+use App\Services\Usage\UsageMeteringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use Throwable;
 
 class WorkspaceInvitationController extends Controller
 {
     /**
      * Store a workspace invitation and send the invite email.
      */
-    public function store(StoreWorkspaceInvitationRequest $request, PlanService $plans): RedirectResponse
-    {
+    public function store(
+        StoreWorkspaceInvitationRequest $request,
+        PlanService $plans,
+        UsageMeteringService $usage
+    ): RedirectResponse {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
 
@@ -69,6 +74,16 @@ class WorkspaceInvitationController extends Controller
             'token' => Str::lower((string) Str::uuid()),
             'expires_at' => now()->addDays(7),
         ]);
+
+        try {
+            $usage->trackIfConfigured($workspace, 'team_invitations_sent', context: [
+                'invitation_id' => $invitation->id,
+                'invited_by_user_id' => $user->id,
+                'invitee_email' => $email,
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         Notification::route('mail', $email)->notify(
             new WorkspaceInvitationNotification(

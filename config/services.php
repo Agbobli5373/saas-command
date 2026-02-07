@@ -44,6 +44,15 @@ return [
         'seat_quantity' => [
             'sync_with_stripe' => env('STRIPE_SYNC_SEAT_QUANTITY', false),
         ],
+        'usage' => [
+            'metrics' => [
+                'team_invitations_sent' => [
+                    'title' => 'Team Invitations',
+                    'description' => 'Invitations sent to teammates this month.',
+                    'limit_key' => 'team_invitations_per_month',
+                ],
+            ],
+        ],
         'plans' => [
             'free' => [
                 'enabled' => env('STRIPE_FREE_PLAN_ENABLED', true),
@@ -63,6 +72,7 @@ return [
                 ],
                 'limits' => [
                     'seats' => env('STRIPE_FREE_PLAN_SEAT_LIMIT', 3),
+                    'team_invitations_per_month' => env('STRIPE_FREE_TEAM_INVITATIONS_PER_MONTH', 20),
                 ],
                 'highlighted' => false,
             ],
@@ -86,6 +96,7 @@ return [
                 ],
                 'limits' => [
                     'seats' => null,
+                    'team_invitations_per_month' => null,
                 ],
                 'highlighted' => false,
             ],
@@ -109,6 +120,7 @@ return [
                 ],
                 'limits' => [
                     'seats' => null,
+                    'team_invitations_per_month' => null,
                 ],
                 'highlighted' => true,
             ],

@@ -47,6 +47,24 @@ type PendingInvitation = {
     expiresAt: string | null;
 };
 
+type UsagePeriod = {
+    start: string;
+    end: string;
+    label: string;
+};
+
+type UsageMetric = {
+    key: string;
+    title: string;
+    description: string | null;
+    quota: number | null;
+    used: number;
+    remaining: number | null;
+    percentage: number | null;
+    isUnlimited: boolean;
+    isExceeded: boolean;
+};
+
 type WorkspaceProps = {
     status?: string;
     workspace: WorkspaceSummary;
@@ -62,6 +80,8 @@ type WorkspaceProps = {
     remainingSeatCapacity: number | null;
     hasReachedSeatLimit: boolean;
     billedSeatCount: number;
+    usagePeriod: UsagePeriod;
+    usageMetrics: UsageMetric[];
 };
 
 export default function Workspace({
@@ -79,6 +99,8 @@ export default function Workspace({
     remainingSeatCapacity,
     hasReachedSeatLimit,
     billedSeatCount,
+    usagePeriod,
+    usageMetrics,
 }: WorkspaceProps) {
     const canSubmitInvites = canInviteMembers && !hasReachedSeatLimit;
     const ownershipCandidates = members.filter((member) => !member.isOwner);
@@ -175,6 +197,46 @@ export default function Workspace({
                                 ) : null}
                             </div>
                         ))}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Usage this period</CardTitle>
+                        <CardDescription>
+                            Metered workspace activity for {usagePeriod.label}.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {usageMetrics.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No usage metrics configured.
+                            </p>
+                        ) : (
+                            usageMetrics.map((metric) => (
+                                <div
+                                    key={metric.key}
+                                    className="space-y-2 rounded-lg border border-border/60 px-3 py-3"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-medium">{metric.title}</p>
+                                        <Badge variant={metric.isExceeded ? 'destructive' : 'outline'}>
+                                            {metric.isUnlimited ? `${metric.used} used` : `${metric.used}/${metric.quota}`}
+                                        </Badge>
+                                    </div>
+                                    {metric.description ? (
+                                        <p className="text-xs text-muted-foreground">{metric.description}</p>
+                                    ) : null}
+                                    {metric.isUnlimited ? (
+                                        <p className="text-xs text-muted-foreground">Unlimited on current plan.</p>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                            {metric.remaining ?? 0} remaining this month.
+                                        </p>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </CardContent>
                 </Card>
 

@@ -9,6 +9,7 @@ use App\Http\Requests\Workspace\TransferWorkspaceOwnershipRequest;
 use App\Http\Requests\Workspace\UpdateWorkspaceMemberRoleRequest;
 use App\Models\User;
 use App\Services\Billing\PlanService;
+use App\Services\Usage\UsageMeteringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ class WorkspaceController extends Controller
     /**
      * Show the current workspace page.
      */
-    public function show(Request $request, PlanService $plans): Response
+    public function show(Request $request, PlanService $plans, UsageMeteringService $usage): Response
     {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
@@ -81,6 +82,8 @@ class WorkspaceController extends Controller
             'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
             'hasReachedSeatLimit' => $plans->hasReachedSeatLimit($workspace, $pendingInvitationCount),
             'billedSeatCount' => $billedSeatCount,
+            'usagePeriod' => $usage->currentPeriodMeta(),
+            'usageMetrics' => $usage->currentPeriodUsage($workspace),
         ]);
     }
 

@@ -29,9 +29,7 @@ type BillingPlan = {
     description: string;
     features: string[];
     featureFlags: string[];
-    limits: {
-        seats: number | null;
-    };
+    limits: Record<string, number | null>;
     highlighted: boolean;
 };
 
@@ -71,6 +69,24 @@ type BillingAuditEvent = {
     actor: BillingAuditActor | null;
 };
 
+type BillingUsagePeriod = {
+    start: string;
+    end: string;
+    label: string;
+};
+
+type BillingUsageMetric = {
+    key: string;
+    title: string;
+    description: string | null;
+    quota: number | null;
+    used: number;
+    remaining: number | null;
+    percentage: number | null;
+    isUnlimited: boolean;
+    isExceeded: boolean;
+};
+
 type BillingProps = {
     status?: string;
     plans: BillingPlan[];
@@ -87,6 +103,8 @@ type BillingProps = {
     seatLimit: number | null;
     remainingSeatCapacity: number | null;
     billedSeatCount: number;
+    usagePeriod: BillingUsagePeriod;
+    usageMetrics: BillingUsageMetric[];
     invoices: BillingInvoice[];
     auditTimeline: BillingAuditEvent[];
 };
@@ -126,6 +144,8 @@ export default function Billing({
     seatLimit,
     remainingSeatCapacity,
     billedSeatCount,
+    usagePeriod,
+    usageMetrics,
     invoices,
     auditTimeline,
 }: BillingProps) {
@@ -283,6 +303,66 @@ export default function Billing({
                                 )}
                             </Form>
                         </CardFooter>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Usage this period</CardTitle>
+                            <CardDescription>
+                                Metered usage for {usagePeriod.label}.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {usageMetrics.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No usage metrics configured for this workspace.
+                                </p>
+                            ) : (
+                                usageMetrics.map((metric) => (
+                                    <div
+                                        key={metric.key}
+                                        className="space-y-2 rounded-lg border border-border/70 px-4 py-3"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="text-sm font-medium">{metric.title}</p>
+                                            <Badge
+                                                variant={metric.isExceeded ? 'destructive' : 'outline'}
+                                            >
+                                                {metric.isUnlimited
+                                                    ? `${metric.used} used`
+                                                    : `${metric.used}/${metric.quota}`}
+                                            </Badge>
+                                        </div>
+                                        {metric.description ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                {metric.description}
+                                            </p>
+                                        ) : null}
+                                        {!metric.isUnlimited && metric.percentage !== null ? (
+                                            <div className="space-y-1">
+                                                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all ${
+                                                            metric.isExceeded
+                                                                ? 'bg-destructive'
+                                                                : 'bg-primary'
+                                                        }`}
+                                                        style={{ width: `${metric.percentage}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {metric.remaining ?? 0} remaining
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">
+                                                Unlimited usage on the current plan.
+                                            </p>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
                     </Card>
 
                     <Card>

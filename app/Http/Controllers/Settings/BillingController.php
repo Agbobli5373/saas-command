@@ -11,6 +11,7 @@ use App\Models\Workspace;
 use App\Services\Billing\BillingAuditLogger;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\PlanService;
+use App\Services\Usage\UsageMeteringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,8 +24,12 @@ class BillingController extends Controller
     /**
      * Show the billing settings page.
      */
-    public function edit(Request $request, BillingService $billing, PlanService $plans): Response
-    {
+    public function edit(
+        Request $request,
+        BillingService $billing,
+        PlanService $plans,
+        UsageMeteringService $usage
+    ): Response {
         $user = $request->user();
         $workspace = $user?->activeWorkspace();
         abort_if($workspace === null, 403);
@@ -51,6 +56,8 @@ class BillingController extends Controller
             'seatLimit' => $plans->seatLimit($workspace),
             'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
             'billedSeatCount' => $this->billedSeatCount($seatCount, $subscription?->quantity),
+            'usagePeriod' => $usage->currentPeriodMeta(),
+            'usageMetrics' => $usage->currentPeriodUsage($workspace),
             'invoices' => $this->safeInvoices($workspace, $billing),
             'auditTimeline' => $this->auditTimeline($workspace),
         ]);

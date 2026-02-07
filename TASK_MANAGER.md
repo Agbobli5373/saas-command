@@ -10,7 +10,7 @@ This file is the source of truth for project execution order and status.
 
 ## Current Focus
 
-- `[ ] 4.2` Usage metering engine (track events, quotas, and monthly resets)
+- `[ ] 4.3` Hard enforcement of plan entitlements (API + UI guards from one policy layer)
 
 ## Milestones
 
@@ -39,7 +39,7 @@ This file is the source of truth for project execution order and status.
 ### V4 Growth & Extensibility
 
 - `[x] 4.1` Workspace member lifecycle management (role update, remove member, transfer ownership)
-- `[ ] 4.2` Usage metering engine (track events, quotas, and monthly resets)
+- `[x] 4.2` Usage metering engine (track events, quotas, and monthly resets)
 - `[ ] 4.3` Hard enforcement of plan entitlements (API + UI guards from one policy layer)
 - `[ ] 4.4` API access layer (workspace API tokens, scoped permissions, rate limits)
 - `[ ] 4.5` Outbound integration webhooks (tenant-configured endpoints, signatures, retries)
