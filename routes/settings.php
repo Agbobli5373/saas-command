@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\BillingController;
+use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
@@ -47,4 +48,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('settings/billing/resume', [BillingController::class, 'resume'])
         ->name('billing.resume');
+
+    Route::get('settings/notifications', [NotificationController::class, 'index'])
+        ->name('notifications.index');
+
+    Route::post('settings/notifications/read-all', [NotificationController::class, 'readAll'])
+        ->name('notifications.read-all');
+
+    Route::post('settings/notifications/{notification}/read', [NotificationController::class, 'read'])
+        ->name('notifications.read');
 });

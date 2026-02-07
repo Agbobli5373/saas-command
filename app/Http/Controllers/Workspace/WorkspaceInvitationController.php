@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspace\StoreWorkspaceInvitationRequest;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
+use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use App\Services\Billing\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,6 +116,13 @@ class WorkspaceInvitationController extends Controller
         }
 
         $workspace->addMember($request->user(), $invitation->roleEnum());
+
+        if ($workspace->owner !== null && $workspace->owner->isNot($request->user())) {
+            $workspace->owner->notify(new WorkspaceMemberJoinedNotification(
+                workspaceName: $workspace->name,
+                memberName: $request->user()->name,
+            ));
+        }
 
         $invitation->forceFill([
             'accepted_at' => now(),
