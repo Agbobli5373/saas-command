@@ -45,6 +45,8 @@ type WorkspaceProps = {
     members: WorkspaceMember[];
     pendingInvitations: PendingInvitation[];
     canInviteMembers: boolean;
+    seatCount: number;
+    billedSeatCount: number;
 };
 
 export default function Workspace({
@@ -53,6 +55,8 @@ export default function Workspace({
     members,
     pendingInvitations,
     canInviteMembers,
+    seatCount,
+    billedSeatCount,
 }: WorkspaceProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -61,7 +65,7 @@ export default function Workspace({
             <div className="space-y-6 px-4 py-6">
                 <Heading
                     title={workspace.name}
-                    description="Manage your team members and invitations"
+                    description="Manage your team members, seats, and invitations"
                 />
 
                 {status ? (
@@ -81,6 +85,10 @@ export default function Workspace({
                         <CardDescription>
                             Current members in this workspace and their roles.
                         </CardDescription>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            <Badge variant="outline">{seatCount} active seats</Badge>
+                            <Badge variant="outline">{billedSeatCount} billed seats</Badge>
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {members.map((member) => (

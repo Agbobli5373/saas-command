@@ -28,6 +28,7 @@ class BillingController extends Controller
         $this->authorize('manageBilling', $workspace);
 
         $subscription = $workspace?->subscription('default');
+        $seatCount = $workspace->seatCount();
         $plans = $this->plans();
 
         return Inertia::render('settings/billing', [
@@ -39,6 +40,8 @@ class BillingController extends Controller
             'isSubscribed' => $workspace?->subscribed('default') ?? false,
             'onGracePeriod' => $subscription?->onGracePeriod() ?? false,
             'endsAt' => $subscription?->ends_at?->toIso8601String(),
+            'seatCount' => $seatCount,
+            'billedSeatCount' => $this->billedSeatCount($seatCount, $subscription?->quantity),
             'invoices' => $workspace === null ? [] : $this->safeInvoices($workspace, $billing),
         ]);
     }
@@ -252,6 +255,15 @@ class BillingController extends Controller
         } catch (Throwable) {
             return [];
         }
+    }
+
+    private function billedSeatCount(int $seatCount, ?int $subscriptionQuantity): int
+    {
+        if (is_int($subscriptionQuantity) && $subscriptionQuantity > 0) {
+            return $subscriptionQuantity;
+        }
+
+        return max(1, $seatCount);
     }
 
     /**

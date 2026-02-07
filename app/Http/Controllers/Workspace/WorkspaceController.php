@@ -33,6 +33,9 @@ class WorkspaceController extends Controller
             ->values()
             ->all();
 
+        $seatCount = count($members);
+        $billedSeatCount = max(1, (int) ($workspace->subscription('default')?->quantity ?? $seatCount));
+
         $pendingInvitations = $workspace->invitations()
             ->whereNull('accepted_at')
             ->where(function ($query): void {
@@ -60,6 +63,8 @@ class WorkspaceController extends Controller
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
             'canInviteMembers' => $user->can('inviteMembers', $workspace),
+            'seatCount' => $seatCount,
+            'billedSeatCount' => $billedSeatCount,
         ]);
     }
 }

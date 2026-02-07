@@ -57,6 +57,8 @@ type BillingProps = {
     isSubscribed: boolean;
     onGracePeriod: boolean;
     endsAt?: string | null;
+    seatCount: number;
+    billedSeatCount: number;
     invoices: BillingInvoice[];
 };
 
@@ -88,6 +90,8 @@ export default function Billing({
     isSubscribed,
     onGracePeriod,
     endsAt,
+    seatCount,
+    billedSeatCount,
     invoices,
 }: BillingProps) {
     const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
@@ -180,6 +184,8 @@ export default function Billing({
                                 {onGracePeriod ? (
                                     <Badge variant="secondary">Grace period</Badge>
                                 ) : null}
+                                <Badge variant="outline">{seatCount} active seats</Badge>
+                                <Badge variant="outline">{billedSeatCount} billed seats</Badge>
                                 {endsAt ? (
                                     <span>
                                         Renews until {new Date(endsAt).toLocaleDateString()}
