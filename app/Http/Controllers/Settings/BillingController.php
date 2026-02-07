@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\BillingCheckoutRequest;
 use App\Http\Requests\Settings\BillingSwapRequest;
+use App\Models\BillingAuditEvent;
 use App\Models\StripeWebhookEvent;
 use App\Models\Workspace;
+use App\Services\Billing\BillingAuditLogger;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\PlanService;
 use Illuminate\Http\RedirectResponse;
@@ -50,6 +52,7 @@ class BillingController extends Controller
             'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
             'billedSeatCount' => $this->billedSeatCount($seatCount, $subscription?->quantity),
             'invoices' => $this->safeInvoices($workspace, $billing),
+            'auditTimeline' => $this->auditTimeline($workspace),
         ]);
     }
 
@@ -59,7 +62,8 @@ class BillingController extends Controller
     public function checkout(
         BillingCheckoutRequest $request,
         BillingService $billing,
-        PlanService $plans
+        PlanService $plans,
+        BillingAuditLogger $auditLogger
     ): SymfonyResponse {
         $workspace = $request->user()->activeWorkspace();
 
@@ -94,8 +98,36 @@ class BillingController extends Controller
                 route('billing.edit')
             );
 
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'checkout_started',
+                title: 'Checkout started',
+                description: sprintf('Stripe checkout was started for %s.', $plan['title']),
+                context: [
+                    'plan_key' => $plan['key'],
+                    'price_id' => $priceId,
+                ],
+            );
+
             return Inertia::location($checkoutUrl);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'checkout_start_failed',
+                title: 'Checkout failed to start',
+                description: 'Stripe checkout could not be started.',
+                severity: 'error',
+                context: [
+                    'plan_key' => $plan['key'],
+                    'price_id' => $priceId,
+                    'error' => $exception->getMessage(),
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Unable to start checkout right now.');
         }
     }
@@ -103,7 +135,7 @@ class BillingController extends Controller
     /**
      * Open Stripe Billing Portal.
      */
-    public function portal(Request $request, BillingService $billing): SymfonyResponse
+    public function portal(Request $request, BillingService $billing, BillingAuditLogger $auditLogger): SymfonyResponse
     {
         $workspace = $request->user()->activeWorkspace();
 
@@ -116,8 +148,30 @@ class BillingController extends Controller
         try {
             $portalUrl = $billing->billingPortal($workspace, route('billing.edit'));
 
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'billing_portal_opened',
+                title: 'Billing portal opened',
+                description: 'Stripe customer portal was opened.',
+            );
+
             return Inertia::location($portalUrl);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'billing_portal_open_failed',
+                title: 'Billing portal failed to open',
+                description: 'Stripe customer portal could not be opened.',
+                severity: 'error',
+                context: [
+                    'error' => $exception->getMessage(),
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Unable to open billing portal right now.');
         }
     }
@@ -125,8 +179,12 @@ class BillingController extends Controller
     /**
      * Swap the current subscription to a different plan.
      */
-    public function swap(BillingSwapRequest $request, BillingService $billing, PlanService $plans): RedirectResponse
-    {
+    public function swap(
+        BillingSwapRequest $request,
+        BillingService $billing,
+        PlanService $plans,
+        BillingAuditLogger $auditLogger
+    ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
@@ -151,8 +209,36 @@ class BillingController extends Controller
         try {
             $billing->swap($workspace, $priceId);
 
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_swapped',
+                title: 'Subscription plan changed',
+                description: sprintf('Subscription was changed to %s.', $plan['title']),
+                context: [
+                    'plan_key' => $plan['key'],
+                    'price_id' => $priceId,
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Your subscription has been updated.');
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_swap_failed',
+                title: 'Subscription change failed',
+                description: 'Subscription plan could not be updated.',
+                severity: 'error',
+                context: [
+                    'plan_key' => $plan['key'],
+                    'price_id' => $priceId,
+                    'error' => $exception->getMessage(),
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Unable to update your subscription right now.');
         }
     }
@@ -160,7 +246,7 @@ class BillingController extends Controller
     /**
      * Cancel the active subscription.
      */
-    public function cancel(Request $request, BillingService $billing): RedirectResponse
+    public function cancel(Request $request, BillingService $billing, BillingAuditLogger $auditLogger): RedirectResponse
     {
         $workspace = $request->user()->activeWorkspace();
 
@@ -173,8 +259,30 @@ class BillingController extends Controller
         try {
             $billing->cancel($workspace);
 
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_cancelled',
+                title: 'Subscription cancelled',
+                description: 'Subscription was cancelled and moved to grace period.',
+            );
+
             return to_route('billing.edit')->with('status', 'Your subscription will end at the current period.');
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_cancel_failed',
+                title: 'Subscription cancellation failed',
+                description: 'Subscription could not be cancelled.',
+                severity: 'error',
+                context: [
+                    'error' => $exception->getMessage(),
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Unable to cancel your subscription right now.');
         }
     }
@@ -182,7 +290,7 @@ class BillingController extends Controller
     /**
      * Resume a cancelled subscription during the grace period.
      */
-    public function resume(Request $request, BillingService $billing): RedirectResponse
+    public function resume(Request $request, BillingService $billing, BillingAuditLogger $auditLogger): RedirectResponse
     {
         $workspace = $request->user()->activeWorkspace();
 
@@ -195,8 +303,30 @@ class BillingController extends Controller
         try {
             $billing->resume($workspace);
 
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_resumed',
+                title: 'Subscription resumed',
+                description: 'Subscription was resumed during grace period.',
+            );
+
             return to_route('billing.edit')->with('status', 'Your subscription has been resumed.');
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            $this->logAuditEvent(
+                auditLogger: $auditLogger,
+                workspace: $workspace,
+                actorId: $request->user()->id,
+                eventType: 'subscription_resume_failed',
+                title: 'Subscription resume failed',
+                description: 'Subscription could not be resumed.',
+                severity: 'error',
+                context: [
+                    'error' => $exception->getMessage(),
+                ],
+            );
+
             return to_route('billing.edit')->with('status', 'Unable to resume your subscription right now.');
         }
     }
@@ -244,6 +374,51 @@ class BillingController extends Controller
     }
 
     /**
+     * @return array<int, array{
+     *     id: int,
+     *     eventType: string,
+     *     source: string,
+     *     severity: string,
+     *     title: string,
+     *     description: string|null,
+     *     context: array<string, mixed>,
+     *     occurredAt: string|null,
+     *     actor: array{id: int, name: string, email: string}|null
+     * }>
+     */
+    private function auditTimeline(Workspace $workspace): array
+    {
+        return BillingAuditEvent::query()
+            ->with('actor:id,name,email')
+            ->where('workspace_id', $workspace->id)
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->map(static function (BillingAuditEvent $event): array {
+                $actor = $event->actor;
+
+                return [
+                    'id' => $event->id,
+                    'eventType' => $event->event_type,
+                    'source' => $event->source,
+                    'severity' => $event->severity,
+                    'title' => $event->title,
+                    'description' => $event->description,
+                    'context' => is_array($event->context) ? $event->context : [],
+                    'occurredAt' => $event->occurred_at?->toIso8601String(),
+                    'actor' => $actor === null ? null : [
+                        'id' => $actor->id,
+                        'name' => $actor->name,
+                        'email' => $actor->email,
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array{status: 'warning', message: string, occurredAt: string}|null
      */
     private function webhookOutcome(): ?array
@@ -263,5 +438,30 @@ class BillingController extends Controller
             'message' => 'Recent payment attempt failed. Ask the customer to update their payment method.',
             'occurredAt' => $failedEvent->created_at->toIso8601String(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logAuditEvent(
+        BillingAuditLogger $auditLogger,
+        Workspace $workspace,
+        int $actorId,
+        string $eventType,
+        string $title,
+        ?string $description = null,
+        string $severity = 'info',
+        array $context = []
+    ): void {
+        $auditLogger->record(
+            workspace: $workspace,
+            actorId: $actorId,
+            eventType: $eventType,
+            source: 'billing_action',
+            severity: $severity,
+            title: $title,
+            description: $description,
+            context: $context,
+        );
     }
 }

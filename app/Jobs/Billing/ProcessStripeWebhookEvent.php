@@ -5,6 +5,7 @@ namespace App\Jobs\Billing;
 use App\Models\StripeWebhookEvent;
 use App\Models\Workspace;
 use App\Notifications\Billing\PaymentFailedNotification;
+use App\Services\Billing\BillingAuditLogger;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -35,7 +36,7 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(BillingAuditLogger $auditLogger): void
     {
         $event = StripeWebhookEvent::query()->find($this->stripeWebhookEventId);
 
@@ -45,6 +46,7 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
 
         $payload = $event->payload;
         $customerId = data_get($payload, 'data.object.customer');
+        $workspace = $this->resolveWorkspace($customerId);
 
         $status = 'processed';
         $message = match ($event->event_type) {
@@ -58,7 +60,7 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
 
         if ($event->event_type === 'invoice.payment_failed') {
             $status = 'action_required';
-            $this->sendPaymentFailedNotification($customerId, $event);
+            $this->sendPaymentFailedNotification($workspace, $customerId, $event);
         }
 
         if (in_array($event->event_type, ['invoice.paid', 'checkout.session.completed', 'customer.subscription.updated'], true)) {
@@ -71,6 +73,10 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
             'error' => null,
             'processed_at' => now(),
         ])->save();
+
+        if ($workspace !== null) {
+            $this->recordAuditTimelineEvent($auditLogger, $workspace, $event, $status);
+        }
     }
 
     public function failed(Throwable $exception): void
@@ -87,16 +93,10 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
         ])->save();
     }
 
-    private function sendPaymentFailedNotification(mixed $customerId, StripeWebhookEvent $event): void
+    private function sendPaymentFailedNotification(?Workspace $workspace, mixed $customerId, StripeWebhookEvent $event): void
     {
-        if (! is_string($customerId) || $customerId === '') {
-            return;
-        }
-
-        $billable = Cashier::findBillable($customerId);
-
-        if ($billable instanceof Workspace) {
-            $owner = $billable->owner()->first();
+        if ($workspace !== null) {
+            $owner = $workspace->owner()->first();
 
             if ($owner !== null) {
                 $owner->notify(new PaymentFailedNotification($event->stripe_event_id));
@@ -104,6 +104,12 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
 
             return;
         }
+
+        if (! is_string($customerId) || $customerId === '') {
+            return;
+        }
+
+        $billable = Cashier::findBillable($customerId);
 
         if (! is_object($billable) || ! method_exists($billable, 'notify')) {
             return;
@@ -129,5 +135,60 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
                 'processed_at' => now(),
                 'updated_at' => now(),
             ]);
+    }
+
+    private function resolveWorkspace(mixed $customerId): ?Workspace
+    {
+        if (! is_string($customerId) || $customerId === '') {
+            return null;
+        }
+
+        $billable = Cashier::findBillable($customerId);
+
+        return $billable instanceof Workspace ? $billable : null;
+    }
+
+    private function recordAuditTimelineEvent(
+        BillingAuditLogger $auditLogger,
+        Workspace $workspace,
+        StripeWebhookEvent $event,
+        string $status
+    ): void {
+        $eventType = match ($event->event_type) {
+            'checkout.session.completed' => 'stripe_checkout_completed',
+            'customer.subscription.updated' => 'stripe_subscription_updated',
+            'customer.subscription.deleted' => 'stripe_subscription_deleted',
+            'invoice.paid' => 'stripe_invoice_paid',
+            'invoice.payment_failed' => 'stripe_invoice_payment_failed',
+            default => 'stripe_webhook_received',
+        };
+
+        $title = match ($event->event_type) {
+            'checkout.session.completed' => 'Stripe checkout completed',
+            'customer.subscription.updated' => 'Stripe subscription updated',
+            'customer.subscription.deleted' => 'Stripe subscription deleted',
+            'invoice.paid' => 'Stripe invoice paid',
+            'invoice.payment_failed' => 'Stripe invoice payment failed',
+            default => 'Stripe webhook received',
+        };
+
+        $severity = match ($event->event_type) {
+            'invoice.payment_failed', 'customer.subscription.deleted' => 'warning',
+            default => 'info',
+        };
+
+        $auditLogger->record(
+            workspace: $workspace,
+            eventType: $eventType,
+            source: 'stripe_webhook',
+            severity: $severity,
+            title: $title,
+            description: $event->message,
+            context: [
+                'stripe_event_id' => $event->stripe_event_id,
+                'stripe_event_type' => $event->event_type,
+                'status' => $status,
+            ],
+        );
     }
 }

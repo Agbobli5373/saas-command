@@ -71,6 +71,14 @@ class Workspace extends Model
     }
 
     /**
+     * Get billing audit events for the workspace.
+     */
+    public function billingAuditEvents(): HasMany
+    {
+        return $this->hasMany(BillingAuditEvent::class);
+    }
+
+    /**
      * Get the count of pending invitations.
      */
     public function pendingInvitationCount(): int
