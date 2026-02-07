@@ -72,9 +72,40 @@ test('billing settings page shares plan metadata and invoice history', function 
         ->has('plans', 2)
         ->where('plans.0.key', 'starter_monthly')
         ->where('plans.0.title', 'Starter Monthly')
+        ->where('seatCount', 1)
+        ->where('billedSeatCount', 1)
         ->has('invoices', 1)
         ->where('invoices.0.id', 'in_test_123')
         ->where('invoices.0.invoicePdfUrl', 'https://example.test/invoice.pdf')
+    );
+});
+
+test('billing settings page shares seat metrics from workspace subscription', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $workspace->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_metrics_123',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_monthly_123',
+        'quantity' => 5,
+    ]);
+
+    $this->mock(BillingService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('invoices')->once()->andReturn([]);
+    });
+
+    $response = $this
+        ->actingAs($owner)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('seatCount', 2)
+        ->where('billedSeatCount', 5)
     );
 });
 
@@ -197,7 +228,11 @@ test('subscribed users can access workspace', function () {
         ->actingAs($user)
         ->get(route('workspace'));
 
-    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('workspace')
+        ->where('seatCount', 1)
+        ->where('billedSeatCount', 1)
+    );
 });
 
 test('workspace members cannot access billing settings', function () {

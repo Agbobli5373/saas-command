@@ -93,3 +93,58 @@ test('dashboard shares active workspace context for authenticated users', functi
         ->has('auth.workspaces', 2)
     );
 });
+
+test('adding a member updates subscription seat quantity', function () {
+    config()->set('services.stripe.seat_quantity.sync_with_stripe', false);
+
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $workspace->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_seat_add_123',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_monthly_123',
+        'quantity' => 1,
+    ]);
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'stripe_id' => 'sub_seat_add_123',
+        'quantity' => 2,
+    ]);
+});
+
+test('removing a member decreases seat quantity but keeps minimum of one', function () {
+    config()->set('services.stripe.seat_quantity.sync_with_stripe', false);
+
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $workspace->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_seat_remove_123',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_monthly_123',
+        'quantity' => 2,
+    ]);
+
+    $workspace->removeMember($member);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'stripe_id' => 'sub_seat_remove_123',
+        'quantity' => 1,
+    ]);
+
+    $workspace->removeMember($owner);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'stripe_id' => 'sub_seat_remove_123',
+        'quantity' => 1,
+    ]);
+});

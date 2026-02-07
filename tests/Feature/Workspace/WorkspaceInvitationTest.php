@@ -60,6 +60,13 @@ test('workspace members cannot invite teammates', function () {
 test('invited user can accept invitation with matching email', function () {
     $owner = User::factory()->create();
     $workspace = $owner->activeWorkspace();
+    $workspace->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_invite_accept_123',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_monthly_123',
+        'quantity' => 1,
+    ]);
 
     $invitedUser = User::factory()->create([
         'email' => 'joiner@example.com',
@@ -92,6 +99,11 @@ test('invited user can accept invitation with matching email', function () {
     expect($invitation->fresh()->accepted_at)->not->toBeNull();
 
     expect($invitedUser->fresh()->current_workspace_id)->toBe($workspace->id);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'stripe_id' => 'sub_invite_accept_123',
+        'quantity' => 2,
+    ]);
 });
 
 test('invitation cannot be accepted by a different email address', function () {
