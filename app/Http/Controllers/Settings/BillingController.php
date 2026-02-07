@@ -24,6 +24,9 @@ class BillingController extends Controller
     {
         $user = $request->user();
         $workspace = $user?->activeWorkspace();
+        abort_if($workspace === null, 403);
+        $this->authorize('manageBilling', $workspace);
+
         $subscription = $workspace?->subscription('default');
         $plans = $this->plans();
 
@@ -50,6 +53,8 @@ class BillingController extends Controller
         if ($workspace === null) {
             return to_route('billing.edit')->with('status', 'Create or join a workspace before subscribing.');
         }
+
+        $this->authorize('manageBilling', $workspace);
 
         $planKey = $request->validated('plan');
         $priceId = $this->plans()[$planKey]['priceId'] ?? null;
@@ -87,6 +92,8 @@ class BillingController extends Controller
             return to_route('billing.edit')->with('status', 'Create or join a workspace before managing billing.');
         }
 
+        $this->authorize('manageBilling', $workspace);
+
         try {
             $portalUrl = $billing->billingPortal($workspace, route('billing.edit'));
 
@@ -106,6 +113,8 @@ class BillingController extends Controller
         if ($workspace === null) {
             return to_route('billing.edit')->with('status', 'Create or join a workspace before changing plans.');
         }
+
+        $this->authorize('manageBilling', $workspace);
 
         $planKey = $request->validated('plan');
         $priceId = $this->plans()[$planKey]['priceId'] ?? null;
@@ -134,6 +143,8 @@ class BillingController extends Controller
             return to_route('billing.edit')->with('status', 'Create or join a workspace before cancelling billing.');
         }
 
+        $this->authorize('manageBilling', $workspace);
+
         try {
             $billing->cancel($workspace);
 
@@ -153,6 +164,8 @@ class BillingController extends Controller
         if ($workspace === null) {
             return to_route('billing.edit')->with('status', 'Create or join a workspace before resuming billing.');
         }
+
+        $this->authorize('manageBilling', $workspace);
 
         try {
             $billing->resume($workspace);

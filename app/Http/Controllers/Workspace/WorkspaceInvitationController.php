@@ -25,6 +25,8 @@ class WorkspaceInvitationController extends Controller
             return back()->with('status', 'No active workspace selected.');
         }
 
+        $this->authorize('inviteMembers', $workspace);
+
         $email = Str::lower(trim((string) $request->validated('email')));
         $role = (string) $request->validated('role');
 
@@ -84,7 +86,7 @@ class WorkspaceInvitationController extends Controller
             return to_route('dashboard')->with('status', 'Invitation has expired.');
         }
 
-        if (Str::lower($request->user()->email) !== Str::lower($invitation->email)) {
+        if ($request->user()->cannot('accept', $invitation)) {
             return to_route('dashboard')->with('status', 'This invitation is for a different email address.');
         }
 

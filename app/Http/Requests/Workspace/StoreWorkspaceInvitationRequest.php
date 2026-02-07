@@ -13,14 +13,7 @@ class StoreWorkspaceInvitationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $user = $this->user();
-        $workspace = $user?->activeWorkspace();
-
-        if ($workspace === null) {
-            return false;
-        }
-
-        return $user->canManageWorkspaceMembers($workspace);
+        return $this->user() !== null;
     }
 
     /**

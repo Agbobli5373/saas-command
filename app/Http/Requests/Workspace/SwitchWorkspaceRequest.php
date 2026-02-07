@@ -26,8 +26,7 @@ class SwitchWorkspaceRequest extends FormRequest
             'workspace_id' => [
                 'required',
                 'integer',
-                Rule::exists('workspace_user', 'workspace_id')
-                    ->where('user_id', $this->user()->id),
+                Rule::exists('workspaces', 'id'),
             ],
         ];
     }
@@ -40,7 +39,7 @@ class SwitchWorkspaceRequest extends FormRequest
         return [
             'workspace_id.required' => 'Select a workspace before switching.',
             'workspace_id.integer' => 'Select a valid workspace before switching.',
-            'workspace_id.exists' => 'You can only switch to a workspace you belong to.',
+            'workspace_id.exists' => 'Select an existing workspace before switching.',
         ];
     }
 }

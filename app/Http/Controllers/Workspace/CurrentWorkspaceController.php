@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspace\SwitchWorkspaceRequest;
+use App\Models\Workspace;
 use Illuminate\Http\RedirectResponse;
 
 class CurrentWorkspaceController extends Controller
@@ -13,9 +14,11 @@ class CurrentWorkspaceController extends Controller
      */
     public function update(SwitchWorkspaceRequest $request): RedirectResponse
     {
-        $request->user()->forceFill([
-            'current_workspace_id' => (int) $request->validated('workspace_id'),
-        ])->save();
+        $workspace = Workspace::query()->findOrFail((int) $request->validated('workspace_id'));
+
+        $this->authorize('switchTo', $workspace);
+
+        $request->user()->switchWorkspace($workspace);
 
         return back()->with('status', 'Workspace switched.');
     }

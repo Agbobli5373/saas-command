@@ -16,6 +16,9 @@ class WorkspaceController extends Controller
     {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
+        abort_if($workspace === null, 403);
+
+        $this->authorize('view', $workspace);
 
         $members = $workspace->members()
             ->select(['users.id', 'users.name', 'users.email'])
@@ -56,7 +59,7 @@ class WorkspaceController extends Controller
             ],
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
-            'canInviteMembers' => $user->canManageWorkspaceMembers($workspace),
+            'canInviteMembers' => $user->can('inviteMembers', $workspace),
         ]);
     }
 }
