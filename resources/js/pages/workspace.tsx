@@ -1,5 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
 import { CircleAlert, MailPlus, Users } from 'lucide-react';
+import WorkspaceController from '@/actions/App/Http/Controllers/Workspace/WorkspaceController';
 import WorkspaceInvitationController from '@/actions/App/Http/Controllers/Workspace/WorkspaceInvitationController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -36,6 +37,7 @@ type WorkspaceMember = {
     name: string;
     email: string;
     role: 'owner' | 'admin' | 'member';
+    isOwner: boolean;
 };
 
 type PendingInvitation = {
@@ -52,6 +54,9 @@ type WorkspaceProps = {
     members: WorkspaceMember[];
     pendingInvitations: PendingInvitation[];
     canInviteMembers: boolean;
+    canManageMembers: boolean;
+    canTransferOwnership: boolean;
+    currentUserId: number;
     seatCount: number;
     seatLimit: number | null;
     remainingSeatCapacity: number | null;
@@ -66,6 +71,9 @@ export default function Workspace({
     members,
     pendingInvitations,
     canInviteMembers,
+    canManageMembers,
+    canTransferOwnership,
+    currentUserId,
     seatCount,
     seatLimit,
     remainingSeatCapacity,
@@ -73,6 +81,7 @@ export default function Workspace({
     billedSeatCount,
 }: WorkspaceProps) {
     const canSubmitInvites = canInviteMembers && !hasReachedSeatLimit;
+    const ownershipCandidates = members.filter((member) => !member.isOwner);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -117,19 +126,95 @@ export default function Workspace({
                         {members.map((member) => (
                             <div
                                 key={member.id}
-                                className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2"
+                                className="space-y-3 rounded-lg border border-border/60 px-3 py-3"
                             >
-                                <div>
-                                    <p className="text-sm font-medium">{member.name}</p>
-                                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium">{member.name}</p>
+                                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                                    </div>
+                                    <Badge variant="secondary" className="capitalize">
+                                        {member.role}
+                                    </Badge>
                                 </div>
-                                <Badge variant="secondary" className="capitalize">
-                                    {member.role}
-                                </Badge>
+
+                                {canManageMembers ? (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Form {...WorkspaceController.updateMemberRole.form(member.id)}>
+                                            {({ processing }) => (
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        name="role"
+                                                        defaultValue={member.role === 'owner' ? 'admin' : member.role}
+                                                        disabled={processing || member.isOwner}
+                                                        className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
+                                                    >
+                                                        <option value="member">Member</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                    <Button size="sm" type="submit" disabled={processing || member.isOwner}>
+                                                        Save role
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </Form>
+
+                                        <Form {...WorkspaceController.destroyMember.form(member.id)}>
+                                            {({ processing }) => (
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    type="submit"
+                                                    disabled={processing || member.isOwner || member.id === currentUserId}
+                                                >
+                                                    Remove member
+                                                </Button>
+                                            )}
+                                        </Form>
+                                    </div>
+                                ) : null}
                             </div>
                         ))}
                     </CardContent>
                 </Card>
+
+                {canTransferOwnership ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Transfer ownership</CardTitle>
+                            <CardDescription>
+                                Move workspace ownership to another current member.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Form {...WorkspaceController.transferOwnership.form()}>
+                                {({ processing, errors }) => (
+                                    <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="owner_id">New owner</Label>
+                                            <select
+                                                id="owner_id"
+                                                name="owner_id"
+                                                defaultValue={ownershipCandidates[0]?.id ?? ''}
+                                                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
+                                            >
+                                                {ownershipCandidates.map((member) => (
+                                                    <option key={member.id} value={member.id}>
+                                                        {member.name} ({member.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <InputError message={errors.owner_id} />
+                                        </div>
+                                        <Button type="submit" disabled={processing || ownershipCandidates.length === 0}>
+                                            Transfer ownership
+                                        </Button>
+                                    </div>
+                                )}
+                            </Form>
+                        </CardContent>
+                    </Card>
+                ) : null}
 
                 {canInviteMembers ? (
                     <Card>
