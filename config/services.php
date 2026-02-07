@@ -40,11 +40,35 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'trial_days' => env('STRIPE_TRIAL_DAYS', 14),
+        'default_plan' => env('STRIPE_DEFAULT_PLAN', 'free'),
         'seat_quantity' => [
             'sync_with_stripe' => env('STRIPE_SYNC_SEAT_QUANTITY', false),
         ],
         'plans' => [
+            'free' => [
+                'enabled' => env('STRIPE_FREE_PLAN_ENABLED', true),
+                'billing_mode' => 'free',
+                'title' => 'Free',
+                'price_label' => '$0',
+                'interval_label' => '/forever',
+                'description' => 'Ideal for validating your idea before scaling.',
+                'features' => [
+                    'Up to 3 active seats',
+                    'Workspace and invitation flow',
+                    'Email support',
+                ],
+                'feature_flags' => [
+                    'team_invitations',
+                    'workspace_management',
+                ],
+                'limits' => [
+                    'seats' => env('STRIPE_FREE_PLAN_SEAT_LIMIT', 3),
+                ],
+                'highlighted' => false,
+            ],
             'starter_monthly' => [
+                'enabled' => true,
+                'billing_mode' => 'stripe',
                 'price_id' => env('STRIPE_PRICE_STARTER_MONTHLY'),
                 'title' => 'Starter Monthly',
                 'price_label' => '$29',
@@ -55,9 +79,19 @@ return [
                     'Stripe subscription billing',
                     'Core analytics and event tracking',
                 ],
+                'feature_flags' => [
+                    'team_invitations',
+                    'workspace_management',
+                    'priority_support',
+                ],
+                'limits' => [
+                    'seats' => null,
+                ],
                 'highlighted' => false,
             ],
             'starter_yearly' => [
+                'enabled' => true,
+                'billing_mode' => 'stripe',
                 'price_id' => env('STRIPE_PRICE_STARTER_YEARLY'),
                 'title' => 'Starter Yearly',
                 'price_label' => '$290',
@@ -67,6 +101,14 @@ return [
                     'Everything in Starter Monthly',
                     'Annual savings over monthly billing',
                     'Priority email support',
+                ],
+                'feature_flags' => [
+                    'team_invitations',
+                    'workspace_management',
+                    'priority_support',
+                ],
+                'limits' => [
+                    'seats' => null,
                 ],
                 'highlighted' => true,
             ],

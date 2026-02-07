@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Billing\PlanService;
 
 class WorkspacePolicy
 {
@@ -31,7 +32,11 @@ class WorkspacePolicy
     {
         $role = $user->workspaceRole($workspace);
 
-        return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
+        if (! in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true)) {
+            return false;
+        }
+
+        return app(PlanService::class)->workspaceHasFeature($workspace, 'team_invitations');
     }
 
     /**

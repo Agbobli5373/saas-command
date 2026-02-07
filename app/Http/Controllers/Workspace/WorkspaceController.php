@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
+use App\Services\Billing\PlanService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,7 +13,7 @@ class WorkspaceController extends Controller
     /**
      * Show the current workspace page.
      */
-    public function show(Request $request): Response
+    public function show(Request $request, PlanService $plans): Response
     {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
@@ -35,14 +36,11 @@ class WorkspaceController extends Controller
 
         $seatCount = count($members);
         $billedSeatCount = max(1, (int) ($workspace->subscription('default')?->quantity ?? $seatCount));
+        $pendingInvitationCount = $workspace->pendingInvitationCount();
+        $currentPlan = $plans->resolveWorkspacePlan($workspace);
 
         $pendingInvitations = $workspace->invitations()
-            ->whereNull('accepted_at')
-            ->where(function ($query): void {
-                $query
-                    ->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
+            ->pending()
             ->latest('id')
             ->get()
             ->map(fn ($invitation): array => [
@@ -60,10 +58,18 @@ class WorkspaceController extends Controller
                 'id' => $workspace->id,
                 'name' => $workspace->name,
             ],
+            'plan' => [
+                'key' => $currentPlan['key'] ?? null,
+                'title' => $currentPlan['title'] ?? null,
+                'billingMode' => $currentPlan['billingMode'] ?? null,
+            ],
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
             'canInviteMembers' => $user->can('inviteMembers', $workspace),
             'seatCount' => $seatCount,
+            'seatLimit' => $plans->seatLimit($workspace),
+            'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
+            'hasReachedSeatLimit' => $plans->hasReachedSeatLimit($workspace, $pendingInvitationCount),
             'billedSeatCount' => $billedSeatCount,
         ]);
     }

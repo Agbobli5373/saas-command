@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspace\StoreWorkspaceInvitationRequest;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\Workspace\WorkspaceInvitationNotification;
+use App\Services\Billing\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -16,7 +17,7 @@ class WorkspaceInvitationController extends Controller
     /**
      * Store a workspace invitation and send the invite email.
      */
-    public function store(StoreWorkspaceInvitationRequest $request): RedirectResponse
+    public function store(StoreWorkspaceInvitationRequest $request, PlanService $plans): RedirectResponse
     {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
@@ -38,9 +39,26 @@ class WorkspaceInvitationController extends Controller
             return back()->with('status', 'This user is already a member of your workspace.');
         }
 
+        $pendingInvitationCount = $workspace->pendingInvitationCount();
+
+        if ($plans->hasReachedSeatLimit($workspace, $pendingInvitationCount)) {
+            $currentPlan = $plans->resolveWorkspacePlan($workspace);
+            $seatLimit = $plans->seatLimit($workspace);
+
+            if ($seatLimit !== null && is_array($currentPlan)) {
+                return back()->with('status', sprintf(
+                    '%s plan allows up to %d seats. Upgrade to invite more teammates.',
+                    $currentPlan['title'],
+                    $seatLimit
+                ));
+            }
+
+            return back()->with('status', 'Workspace seat limit reached. Upgrade to invite more teammates.');
+        }
+
         $workspace->invitations()
             ->whereRaw('LOWER(email) = ?', [$email])
-            ->whereNull('accepted_at')
+            ->pending()
             ->update(['expires_at' => now()]);
 
         $invitation = $workspace->invitations()->create([
@@ -67,7 +85,7 @@ class WorkspaceInvitationController extends Controller
     /**
      * Accept a workspace invitation for the authenticated user.
      */
-    public function accept(Request $request, string $token): RedirectResponse
+    public function accept(Request $request, string $token, PlanService $plans): RedirectResponse
     {
         $invitation = WorkspaceInvitation::query()
             ->with('workspace')
@@ -91,6 +109,11 @@ class WorkspaceInvitationController extends Controller
         }
 
         $workspace = $invitation->workspace;
+
+        if ($plans->hasReachedSeatLimit($workspace)) {
+            return to_route('dashboard')->with('status', 'Workspace seat limit reached. Ask the owner to upgrade first.');
+        }
+
         $workspace->addMember($request->user(), $invitation->roleEnum());
 
         $invitation->forceFill([

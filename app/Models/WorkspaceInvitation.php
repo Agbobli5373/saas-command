@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\WorkspaceRole;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,6 +71,23 @@ class WorkspaceInvitation extends Model
     public function isPending(): bool
     {
         return $this->accepted_at === null && ! $this->isExpired();
+    }
+
+    /**
+     * Scope invitations that are still active.
+     *
+     * @param  Builder<WorkspaceInvitation>  $query
+     * @return Builder<WorkspaceInvitation>
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query
+            ->whereNull('accepted_at')
+            ->where(function (Builder $builder): void {
+                $builder
+                    ->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
     }
 
     /**

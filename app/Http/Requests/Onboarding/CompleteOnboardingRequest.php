@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Onboarding;
 
+use App\Services\Billing\PlanService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -46,19 +47,6 @@ class CompleteOnboardingRequest extends FormRequest
      */
     private function plans(): array
     {
-        /** @var array<string, array<string, mixed>> $configuredPlans */
-        $configuredPlans = config('services.stripe.plans', []);
-
-        $plans = [];
-
-        foreach ($configuredPlans as $planKey => $plan) {
-            $priceId = $plan['price_id'] ?? null;
-
-            if (is_string($priceId) && $priceId !== '') {
-                $plans[$planKey] = $priceId;
-            }
-        }
-
-        return $plans;
+        return app(PlanService::class)->all();
     }
 }

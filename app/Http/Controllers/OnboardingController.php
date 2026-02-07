@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Onboarding\CompleteOnboardingRequest;
 use App\Services\Billing\BillingService;
+use App\Services\Billing\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,7 +17,7 @@ class OnboardingController extends Controller
     /**
      * Show the onboarding page.
      */
-    public function show(Request $request): Response|RedirectResponse
+    public function show(Request $request, PlanService $plans): Response|RedirectResponse
     {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
@@ -33,7 +34,7 @@ class OnboardingController extends Controller
         return Inertia::render('onboarding', [
             'status' => $request->session()->get('status'),
             'workspaceName' => $workspace->name,
-            'plans' => array_values($this->plans()),
+            'plans' => array_values($plans->all()),
             'stripeConfigWarnings' => $this->stripeConfigWarnings(),
         ]);
     }
@@ -41,8 +42,11 @@ class OnboardingController extends Controller
     /**
      * Complete onboarding and start Stripe checkout.
      */
-    public function store(CompleteOnboardingRequest $request, BillingService $billing): SymfonyResponse
-    {
+    public function store(
+        CompleteOnboardingRequest $request,
+        BillingService $billing,
+        PlanService $plans
+    ): SymfonyResponse {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
         abort_if($workspace === null, 403);
@@ -59,7 +63,19 @@ class OnboardingController extends Controller
         }
 
         $planKey = $request->validated('plan');
-        $priceId = $this->plans()[$planKey]['priceId'] ?? null;
+        $plan = $plans->find($planKey);
+
+        if (! is_array($plan)) {
+            return to_route('onboarding.show')->with('status', 'Invalid plan selected.');
+        }
+
+        if ($plan['billingMode'] === 'free') {
+            $user->markOnboardingCompleted();
+
+            return to_route('dashboard')->with('status', sprintf('Onboarding completed on %s plan.', $plan['title']));
+        }
+
+        $priceId = $plan['priceId'];
 
         if (! is_string($priceId) || $priceId === '') {
             return to_route('onboarding.show')->with('status', 'Invalid plan selected.');
@@ -77,51 +93,6 @@ class OnboardingController extends Controller
         } catch (Throwable) {
             return to_route('onboarding.show')->with('status', 'Unable to start checkout right now.');
         }
-    }
-
-    /**
-     * @return array<string, array{
-     *     key: string,
-     *     priceId: string,
-     *     title: string,
-     *     priceLabel: string,
-     *     intervalLabel: string,
-     *     description: string,
-     *     features: array<int, string>,
-     *     highlighted: bool
-     * }>
-     */
-    private function plans(): array
-    {
-        /** @var array<string, array<string, mixed>> $configuredPlans */
-        $configuredPlans = config('services.stripe.plans', []);
-        $plans = [];
-
-        foreach ($configuredPlans as $planKey => $plan) {
-            $priceId = $plan['price_id'] ?? null;
-
-            if (! is_string($priceId) || $priceId === '') {
-                continue;
-            }
-
-            $features = collect($plan['features'] ?? [])
-                ->filter(static fn (mixed $feature): bool => is_string($feature) && $feature !== '')
-                ->values()
-                ->all();
-
-            $plans[$planKey] = [
-                'key' => $planKey,
-                'priceId' => $priceId,
-                'title' => is_string($plan['title'] ?? null) && $plan['title'] !== '' ? $plan['title'] : $planKey,
-                'priceLabel' => is_string($plan['price_label'] ?? null) ? $plan['price_label'] : '',
-                'intervalLabel' => is_string($plan['interval_label'] ?? null) ? $plan['interval_label'] : '',
-                'description' => is_string($plan['description'] ?? null) ? $plan['description'] : '',
-                'features' => $features,
-                'highlighted' => (bool) ($plan['highlighted'] ?? false),
-            ];
-        }
-
-        return $plans;
     }
 
     /**

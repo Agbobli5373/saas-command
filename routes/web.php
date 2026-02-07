@@ -41,7 +41,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::get('workspace', [WorkspaceController::class, 'show'])
-    ->middleware(['auth', 'verified', 'subscribed'])
+    ->middleware(['auth', 'verified', 'onboarded'])
     ->name('workspace');
 
 require __DIR__.'/settings.php';

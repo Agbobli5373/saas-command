@@ -8,6 +8,7 @@ use App\Http\Requests\Settings\BillingSwapRequest;
 use App\Models\StripeWebhookEvent;
 use App\Models\Workspace;
 use App\Services\Billing\BillingService;
+use App\Services\Billing\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,37 +21,46 @@ class BillingController extends Controller
     /**
      * Show the billing settings page.
      */
-    public function edit(Request $request, BillingService $billing): Response
+    public function edit(Request $request, BillingService $billing, PlanService $plans): Response
     {
         $user = $request->user();
         $workspace = $user?->activeWorkspace();
         abort_if($workspace === null, 403);
         $this->authorize('manageBilling', $workspace);
 
-        $subscription = $workspace?->subscription('default');
+        $subscription = $workspace->subscription('default');
         $seatCount = $workspace->seatCount();
-        $plans = $this->plans();
+        $pendingInvitationCount = $workspace->pendingInvitationCount();
+        $currentPlan = $plans->resolveWorkspacePlan($workspace);
 
         return Inertia::render('settings/billing', [
             'status' => $request->session()->get('status'),
-            'plans' => array_values($plans),
+            'plans' => array_values($plans->all()),
             'stripeConfigWarnings' => $this->stripeConfigWarnings(),
             'webhookOutcome' => $this->webhookOutcome(),
             'currentPriceId' => $subscription?->stripe_price,
-            'isSubscribed' => $workspace?->subscribed('default') ?? false,
+            'currentPlanKey' => $currentPlan['key'] ?? null,
+            'currentPlanTitle' => $currentPlan['title'] ?? null,
+            'currentPlanBillingMode' => $currentPlan['billingMode'] ?? null,
+            'isSubscribed' => $workspace->subscribed('default'),
             'onGracePeriod' => $subscription?->onGracePeriod() ?? false,
             'endsAt' => $subscription?->ends_at?->toIso8601String(),
             'seatCount' => $seatCount,
+            'seatLimit' => $plans->seatLimit($workspace),
+            'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
             'billedSeatCount' => $this->billedSeatCount($seatCount, $subscription?->quantity),
-            'invoices' => $workspace === null ? [] : $this->safeInvoices($workspace, $billing),
+            'invoices' => $this->safeInvoices($workspace, $billing),
         ]);
     }
 
     /**
      * Start Stripe Checkout for a selected plan.
      */
-    public function checkout(BillingCheckoutRequest $request, BillingService $billing): SymfonyResponse
-    {
+    public function checkout(
+        BillingCheckoutRequest $request,
+        BillingService $billing,
+        PlanService $plans
+    ): SymfonyResponse {
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
@@ -60,9 +70,15 @@ class BillingController extends Controller
         $this->authorize('manageBilling', $workspace);
 
         $planKey = $request->validated('plan');
-        $priceId = $this->plans()[$planKey]['priceId'] ?? null;
+        $plan = $plans->checkoutPlans()[$planKey] ?? null;
 
-        if ($priceId === null) {
+        if (! is_array($plan)) {
+            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+        }
+
+        $priceId = $plan['priceId'] ?? null;
+
+        if (! is_string($priceId) || $priceId === '') {
             return to_route('billing.edit')->with('status', 'Invalid plan selected.');
         }
 
@@ -109,7 +125,7 @@ class BillingController extends Controller
     /**
      * Swap the current subscription to a different plan.
      */
-    public function swap(BillingSwapRequest $request, BillingService $billing): RedirectResponse
+    public function swap(BillingSwapRequest $request, BillingService $billing, PlanService $plans): RedirectResponse
     {
         $workspace = $request->user()->activeWorkspace();
 
@@ -120,9 +136,15 @@ class BillingController extends Controller
         $this->authorize('manageBilling', $workspace);
 
         $planKey = $request->validated('plan');
-        $priceId = $this->plans()[$planKey]['priceId'] ?? null;
+        $plan = $plans->checkoutPlans()[$planKey] ?? null;
 
-        if ($priceId === null) {
+        if (! is_array($plan)) {
+            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+        }
+
+        $priceId = $plan['priceId'] ?? null;
+
+        if (! is_string($priceId) || $priceId === '') {
             return to_route('billing.edit')->with('status', 'Invalid plan selected.');
         }
 
@@ -177,51 +199,6 @@ class BillingController extends Controller
         } catch (Throwable) {
             return to_route('billing.edit')->with('status', 'Unable to resume your subscription right now.');
         }
-    }
-
-    /**
-     * @return array<string, array{
-     *     key: string,
-     *     priceId: string,
-     *     title: string,
-     *     priceLabel: string,
-     *     intervalLabel: string,
-     *     description: string,
-     *     features: array<int, string>,
-     *     highlighted: bool
-     * }>
-     */
-    private function plans(): array
-    {
-        /** @var array<string, array<string, mixed>> $configuredPlans */
-        $configuredPlans = config('services.stripe.plans', []);
-        $plans = [];
-
-        foreach ($configuredPlans as $planKey => $plan) {
-            $priceId = $plan['price_id'] ?? null;
-
-            if (! is_string($priceId) || $priceId === '') {
-                continue;
-            }
-
-            $features = collect($plan['features'] ?? [])
-                ->filter(static fn (mixed $feature): bool => is_string($feature) && $feature !== '')
-                ->values()
-                ->all();
-
-            $plans[$planKey] = [
-                'key' => $planKey,
-                'priceId' => $priceId,
-                'title' => is_string($plan['title'] ?? null) && $plan['title'] !== '' ? $plan['title'] : $planKey,
-                'priceLabel' => is_string($plan['price_label'] ?? null) ? $plan['price_label'] : '',
-                'intervalLabel' => is_string($plan['interval_label'] ?? null) ? $plan['interval_label'] : '',
-                'description' => is_string($plan['description'] ?? null) ? $plan['description'] : '',
-                'features' => $features,
-                'highlighted' => (bool) ($plan['highlighted'] ?? false),
-            ];
-        }
-
-        return $plans;
     }
 
     /**

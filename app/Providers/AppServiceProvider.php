@@ -60,25 +60,32 @@ class AppServiceProvider extends ServiceProvider
     {
         $warnings = [];
 
-        $stripeKey = config('services.stripe.key');
-        $stripeSecret = config('services.stripe.secret');
-
-        if (! is_string($stripeKey) || $stripeKey === '') {
-            $warnings[] = 'Stripe publishable key is missing. Set STRIPE_KEY in your .env.';
-        }
-
-        if (! is_string($stripeSecret) || $stripeSecret === '') {
-            $warnings[] = 'Stripe secret key is missing. Set STRIPE_SECRET in your .env.';
-        }
-
         /** @var array<string, array<string, mixed>> $plans */
         $plans = config('services.stripe.plans', []);
         $priceIds = [];
+        $hasEnabledStripePlan = false;
 
         foreach ($plans as $planKey => $plan) {
-            $priceId = $plan['price_id'] ?? null;
+            $enabled = $plan['enabled'] ?? true;
+            $isEnabled = is_bool($enabled)
+                ? $enabled
+                : ! in_array(strtolower((string) $enabled), ['0', 'false', 'off', 'no'], true);
 
-            if (! is_string($priceId) || $priceId === '') {
+            if (! $isEnabled) {
+                continue;
+            }
+
+            $billingMode = strtolower((string) ($plan['billing_mode'] ?? 'stripe'));
+
+            if ($billingMode !== 'stripe') {
+                continue;
+            }
+
+            $hasEnabledStripePlan = true;
+
+            $priceId = trim((string) ($plan['price_id'] ?? ''));
+
+            if ($priceId === '') {
                 $warnings[] = sprintf(
                     'Stripe price for "%s" is missing. Set %s in your .env.',
                     $plan['title'] ?? $planKey,
@@ -89,6 +96,19 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $priceIds[] = $priceId;
+        }
+
+        if ($hasEnabledStripePlan) {
+            $stripeKey = config('services.stripe.key');
+            $stripeSecret = config('services.stripe.secret');
+
+            if (! is_string($stripeKey) || $stripeKey === '') {
+                $warnings[] = 'Stripe publishable key is missing. Set STRIPE_KEY in your .env.';
+            }
+
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
+                $warnings[] = 'Stripe secret key is missing. Set STRIPE_SECRET in your .env.';
+            }
         }
 
         if (count($priceIds) !== count(array_unique($priceIds))) {

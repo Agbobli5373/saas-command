@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Services\Billing\PlanService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -33,29 +34,16 @@ class BillingCheckoutRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'plan.required' => 'Select a plan before continuing to checkout.',
-            'plan.in' => 'Select a valid plan before continuing to checkout.',
+            'plan.required' => 'Select a paid plan before continuing to checkout.',
+            'plan.in' => 'Select a valid paid plan before continuing to checkout.',
         ];
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, array<string, mixed>>
      */
     private function plans(): array
     {
-        /** @var array<string, array<string, mixed>> $configuredPlans */
-        $configuredPlans = config('services.stripe.plans', []);
-
-        $plans = [];
-
-        foreach ($configuredPlans as $planKey => $plan) {
-            $priceId = $plan['price_id'] ?? null;
-
-            if (is_string($priceId) && $priceId !== '') {
-                $plans[$planKey] = $priceId;
-            }
-        }
-
-        return $plans;
+        return app(PlanService::class)->checkoutPlans();
     }
 }

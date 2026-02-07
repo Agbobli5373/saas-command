@@ -71,6 +71,16 @@ class Workspace extends Model
     }
 
     /**
+     * Get the count of pending invitations.
+     */
+    public function pendingInvitationCount(): int
+    {
+        return $this->invitations()
+            ->pending()
+            ->count();
+    }
+
+    /**
      * Add a user to the workspace.
      */
     public function addMember(User $user, WorkspaceRole $role = WorkspaceRole::Member): void
