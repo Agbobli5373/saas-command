@@ -10,7 +10,7 @@ This file is the source of truth for project execution order and status.
 
 ## Current Focus
 
-- `[ ] 3.4` Admin/owner billing audit timeline
+- `[ ] 3.5` Production readiness (error monitoring, queue health, backup checks)
 
 ## Milestones
 
@@ -33,7 +33,7 @@ This file is the source of truth for project execution order and status.
 - `[x] 3.1` Onboarding flow (create workspace + choose plan)
 - `[x] 3.2` Usage limits and feature flags by plan
 - `[x] 3.3` Account notifications center (billing + product events)
-- `[ ] 3.4` Admin/owner billing audit timeline
+- `[x] 3.4` Admin/owner billing audit timeline
 - `[ ] 3.5` Production readiness (error monitoring, queue health, backup checks)
 
 ## Rules We Follow
