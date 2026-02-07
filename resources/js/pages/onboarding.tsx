@@ -13,12 +13,17 @@ import { logout } from '@/routes';
 
 type BillingPlan = {
     key: string;
-    priceId: string;
+    billingMode: 'free' | 'stripe';
+    priceId: string | null;
     title: string;
     priceLabel: string;
     intervalLabel: string;
     description: string;
     features: string[];
+    featureFlags: string[];
+    limits: {
+        seats: number | null;
+    };
     highlighted: boolean;
 };
 
@@ -41,6 +46,11 @@ export default function Onboarding({
     );
 
     const [selectedPlan, setSelectedPlan] = useState<string>(defaultPlan);
+    const selectedPlanMeta = useMemo(
+        () => plans.find((plan) => plan.key === selectedPlan) ?? null,
+        [plans, selectedPlan],
+    );
+    const shouldStartStripeCheckout = selectedPlanMeta?.billingMode === 'stripe';
 
     return (
         <div className="relative min-h-screen bg-gradient-to-b from-background via-muted/30 to-background px-4 py-10">
@@ -152,7 +162,9 @@ export default function Onboarding({
                                             processing || selectedPlan === ''
                                         }
                                     >
-                                        Continue to checkout
+                                        {shouldStartStripeCheckout
+                                            ? 'Continue to checkout'
+                                            : 'Continue to workspace'}
                                     </Button>
                                 </div>
                             </CardContent>

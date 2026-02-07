@@ -21,12 +21,17 @@ import type { BreadcrumbItem } from '@/types';
 
 type BillingPlan = {
     key: string;
-    priceId: string;
+    billingMode: 'free' | 'stripe';
+    priceId: string | null;
     title: string;
     priceLabel: string;
     intervalLabel: string;
     description: string;
     features: string[];
+    featureFlags: string[];
+    limits: {
+        seats: number | null;
+    };
     highlighted: boolean;
 };
 
@@ -54,10 +59,15 @@ type BillingProps = {
     stripeConfigWarnings: string[];
     webhookOutcome: BillingWebhookOutcome | null;
     currentPriceId?: string | null;
+    currentPlanKey?: string | null;
+    currentPlanTitle?: string | null;
+    currentPlanBillingMode?: 'free' | 'stripe' | null;
     isSubscribed: boolean;
     onGracePeriod: boolean;
     endsAt?: string | null;
     seatCount: number;
+    seatLimit: number | null;
+    remainingSeatCapacity: number | null;
     billedSeatCount: number;
     invoices: BillingInvoice[];
 };
@@ -87,15 +97,26 @@ export default function Billing({
     stripeConfigWarnings,
     webhookOutcome,
     currentPriceId,
+    currentPlanKey,
+    currentPlanTitle,
+    currentPlanBillingMode,
     isSubscribed,
     onGracePeriod,
     endsAt,
     seatCount,
+    seatLimit,
+    remainingSeatCapacity,
     billedSeatCount,
     invoices,
 }: BillingProps) {
     const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
-    const defaultPlan = plans[0]?.key ?? null;
+
+    const paidPlans = useMemo(
+        () => plans.filter((plan) => plan.billingMode === 'stripe' && plan.priceId !== null),
+        [plans],
+    );
+
+    const defaultPaidPlan = paidPlans[0]?.key ?? null;
 
     const filteredInvoices = useMemo(() => {
         if (invoiceFilter === 'all') {
@@ -171,7 +192,9 @@ export default function Billing({
                                     <CardDescription className="mt-1">
                                         {isSubscribed
                                             ? 'Your workspace has an active Stripe subscription.'
-                                            : 'No active subscription on this account yet.'}
+                                            : currentPlanBillingMode === 'free'
+                                              ? 'Your workspace is on the free tier with no Stripe billing required.'
+                                              : 'No active subscription on this account yet.'}
                                     </CardDescription>
                                 </div>
 
@@ -181,11 +204,18 @@ export default function Billing({
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                                {onGracePeriod ? (
-                                    <Badge variant="secondary">Grace period</Badge>
-                                ) : null}
+                                {currentPlanTitle ? <Badge variant="secondary">Plan: {currentPlanTitle}</Badge> : null}
+                                {onGracePeriod ? <Badge variant="secondary">Grace period</Badge> : null}
                                 <Badge variant="outline">{seatCount} active seats</Badge>
                                 <Badge variant="outline">{billedSeatCount} billed seats</Badge>
+                                {seatLimit !== null ? (
+                                    <Badge variant="outline">
+                                        Seat capacity {seatCount}/{seatLimit}
+                                    </Badge>
+                                ) : null}
+                                {remainingSeatCapacity !== null ? (
+                                    <span>{remainingSeatCapacity} seats available</span>
+                                ) : null}
                                 {endsAt ? (
                                     <span>
                                         Renews until {new Date(endsAt).toLocaleDateString()}
@@ -195,16 +225,18 @@ export default function Billing({
                         </CardHeader>
 
                         <CardFooter className="flex flex-wrap gap-3">
-                            <Form {...BillingController.checkout.form()}>
-                                {({ processing }) => (
-                                    <>
-                                        <input type="hidden" name="plan" value={defaultPlan ?? ''} />
-                                        <Button disabled={processing || isSubscribed || defaultPlan === null}>
-                                            Start subscription
-                                        </Button>
-                                    </>
-                                )}
-                            </Form>
+                            {defaultPaidPlan ? (
+                                <Form {...BillingController.checkout.form()}>
+                                    {({ processing }) => (
+                                        <>
+                                            <input type="hidden" name="plan" value={defaultPaidPlan} />
+                                            <Button disabled={processing || isSubscribed}>
+                                                Start subscription
+                                            </Button>
+                                        </>
+                                    )}
+                                </Form>
+                            ) : null}
 
                             <Form {...BillingController.portal.form()}>
                                 {({ processing }) => (
@@ -309,90 +341,96 @@ export default function Billing({
                         </CardContent>
                     </Card>
 
-                    {plans.length === 0 ? (
+                    {paidPlans.length === 0 ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
-                            <AlertTitle>No plans configured</AlertTitle>
+                            <AlertTitle>No paid plans configured</AlertTitle>
                             <AlertDescription>
                                 Add `STRIPE_PRICE_STARTER_MONTHLY` and `STRIPE_PRICE_STARTER_YEARLY` to your `.env`,
                                 then run `php artisan config:clear`.
                             </AlertDescription>
                         </Alert>
-                    ) : (
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {plans.map((plan) => {
-                                const isCurrent = currentPriceId === plan.priceId;
+                    ) : null}
 
-                                return (
-                                    <Card
-                                        key={plan.key}
-                                        className={plan.highlighted ? 'border-primary/40 shadow-sm' : ''}
-                                    >
-                                        <CardHeader className="space-y-3">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <CardTitle>{plan.title}</CardTitle>
-                                                {isCurrent ? (
-                                                    <Badge>Current</Badge>
-                                                ) : plan.highlighted ? (
-                                                    <Badge variant="secondary">Popular</Badge>
-                                                ) : null}
-                                            </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {plans.map((plan) => {
+                            const isCurrentPlan =
+                                currentPlanKey === plan.key ||
+                                (plan.priceId !== null && currentPriceId === plan.priceId);
 
-                                            <CardDescription>{plan.description}</CardDescription>
+                            return (
+                                <Card
+                                    key={plan.key}
+                                    className={plan.highlighted ? 'border-primary/40 shadow-sm' : ''}
+                                >
+                                    <CardHeader className="space-y-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <CardTitle>{plan.title}</CardTitle>
+                                            {isCurrentPlan ? (
+                                                <Badge>Current</Badge>
+                                            ) : plan.highlighted ? (
+                                                <Badge variant="secondary">Popular</Badge>
+                                            ) : null}
+                                        </div>
 
-                                            <p className="text-2xl font-semibold tracking-tight">
-                                                {plan.priceLabel}
-                                                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                                                    {plan.intervalLabel}
-                                                </span>
-                                            </p>
-                                        </CardHeader>
+                                        <CardDescription>{plan.description}</CardDescription>
 
-                                        <CardContent>
-                                            <ul className="space-y-2 text-sm text-muted-foreground">
-                                                {plan.features.map((feature) => (
-                                                    <li key={feature} className="flex items-start gap-2">
-                                                        <Check className="mt-0.5 h-4 w-4 text-primary" />
-                                                        <span>{feature}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </CardContent>
+                                        <p className="text-2xl font-semibold tracking-tight">
+                                            {plan.priceLabel}
+                                            <span className="ml-1 text-sm font-normal text-muted-foreground">
+                                                {plan.intervalLabel}
+                                            </span>
+                                        </p>
+                                    </CardHeader>
 
-                                        <CardFooter>
-                                            {!isSubscribed ? (
-                                                <Form {...BillingController.checkout.form()} className="w-full">
-                                                    {({ processing }) => (
-                                                        <>
-                                                            <input type="hidden" name="plan" value={plan.key} />
-                                                            <Button className="w-full" disabled={processing || isCurrent}>
-                                                                Start with {plan.title}
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </Form>
-                                            ) : (
-                                                <Form {...BillingController.swap.form()} className="w-full">
-                                                    {({ processing }) => (
-                                                        <>
-                                                            <input type="hidden" name="plan" value={plan.key} />
-                                                            <Button
-                                                                variant="outline"
-                                                                className="w-full"
-                                                                disabled={processing || isCurrent}
-                                                            >
-                                                                Switch to {plan.title}
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </Form>
-                                            )}
-                                        </CardFooter>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    <CardContent>
+                                        <ul className="space-y-2 text-sm text-muted-foreground">
+                                            {plan.features.map((feature) => (
+                                                <li key={feature} className="flex items-start gap-2">
+                                                    <Check className="mt-0.5 h-4 w-4 text-primary" />
+                                                    <span>{feature}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </CardContent>
+
+                                    <CardFooter>
+                                        {plan.billingMode === 'free' ? (
+                                            <Button className="w-full" variant="outline" disabled>
+                                                {isCurrentPlan ? 'Current plan' : 'Available without checkout'}
+                                            </Button>
+                                        ) : !isSubscribed ? (
+                                            <Form {...BillingController.checkout.form()} className="w-full">
+                                                {({ processing }) => (
+                                                    <>
+                                                        <input type="hidden" name="plan" value={plan.key} />
+                                                        <Button className="w-full" disabled={processing || isCurrentPlan}>
+                                                            Start with {plan.title}
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </Form>
+                                        ) : (
+                                            <Form {...BillingController.swap.form()} className="w-full">
+                                                {({ processing }) => (
+                                                    <>
+                                                        <input type="hidden" name="plan" value={plan.key} />
+                                                        <Button
+                                                            variant="outline"
+                                                            className="w-full"
+                                                            disabled={processing || isCurrentPlan}
+                                                        >
+                                                            Switch to {plan.title}
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </Form>
+                                        )}
+                                    </CardFooter>
+                                </Card>
+                            );
+                        })}
+                    </div>
                 </div>
             </SettingsLayout>
         </AppLayout>

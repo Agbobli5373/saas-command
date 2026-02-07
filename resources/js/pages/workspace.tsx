@@ -25,6 +25,12 @@ type WorkspaceSummary = {
     name: string;
 };
 
+type WorkspacePlan = {
+    key: string | null;
+    title: string | null;
+    billingMode: 'free' | 'stripe' | null;
+};
+
 type WorkspaceMember = {
     id: number;
     name: string;
@@ -42,22 +48,32 @@ type PendingInvitation = {
 type WorkspaceProps = {
     status?: string;
     workspace: WorkspaceSummary;
+    plan: WorkspacePlan;
     members: WorkspaceMember[];
     pendingInvitations: PendingInvitation[];
     canInviteMembers: boolean;
     seatCount: number;
+    seatLimit: number | null;
+    remainingSeatCapacity: number | null;
+    hasReachedSeatLimit: boolean;
     billedSeatCount: number;
 };
 
 export default function Workspace({
     status,
     workspace,
+    plan,
     members,
     pendingInvitations,
     canInviteMembers,
     seatCount,
+    seatLimit,
+    remainingSeatCapacity,
+    hasReachedSeatLimit,
     billedSeatCount,
 }: WorkspaceProps) {
+    const canSubmitInvites = canInviteMembers && !hasReachedSeatLimit;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Workspace" />
@@ -86,8 +102,15 @@ export default function Workspace({
                             Current members in this workspace and their roles.
                         </CardDescription>
                         <div className="flex flex-wrap gap-2 pt-1">
+                            {plan.title ? <Badge variant="secondary">Plan: {plan.title}</Badge> : null}
                             <Badge variant="outline">{seatCount} active seats</Badge>
                             <Badge variant="outline">{billedSeatCount} billed seats</Badge>
+                            {seatLimit !== null ? (
+                                <Badge variant="outline">Seat capacity {seatCount}/{seatLimit}</Badge>
+                            ) : null}
+                            {remainingSeatCapacity !== null ? (
+                                <Badge variant="outline">{remainingSeatCapacity} seats available</Badge>
+                            ) : null}
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -119,7 +142,17 @@ export default function Workspace({
                                 Send an email invite and assign a role.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
+                            {hasReachedSeatLimit && seatLimit !== null ? (
+                                <Alert>
+                                    <CircleAlert className="h-4 w-4" />
+                                    <AlertTitle>Seat limit reached</AlertTitle>
+                                    <AlertDescription>
+                                        This plan allows up to {seatLimit} seats. Upgrade to invite more teammates.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+
                             <Form {...WorkspaceInvitationController.store.form()}>
                                 {({ processing, errors }) => (
                                     <div className="grid gap-4 md:grid-cols-[1fr_180px_auto] md:items-end">
@@ -149,7 +182,7 @@ export default function Workspace({
                                             <InputError message={errors.role} />
                                         </div>
 
-                                        <Button type="submit" disabled={processing}>
+                                        <Button type="submit" disabled={processing || !canSubmitInvites}>
                                             Send invite
                                         </Button>
                                     </div>
