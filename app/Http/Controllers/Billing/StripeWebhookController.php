@@ -17,6 +17,7 @@ class StripeWebhookController extends CashierWebhookController
         'checkout.session.completed',
         'customer.subscription.updated',
         'customer.subscription.deleted',
+        'invoice.paid',
         'invoice.payment_failed',
     ];
 
