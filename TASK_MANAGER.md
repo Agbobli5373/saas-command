@@ -10,7 +10,7 @@ This file is the source of truth for project execution order and status.
 
 ## Current Focus
 
-- `[x] V3 complete` Product-ready SaaS starter milestones
+- `[ ] 4.2` Usage metering engine (track events, quotas, and monthly resets)
 
 ## Milestones
 
@@ -35,6 +35,15 @@ This file is the source of truth for project execution order and status.
 - `[x] 3.3` Account notifications center (billing + product events)
 - `[x] 3.4` Admin/owner billing audit timeline
 - `[x] 3.5` Production readiness (error monitoring, queue health, backup checks)
+
+### V4 Growth & Extensibility
+
+- `[x] 4.1` Workspace member lifecycle management (role update, remove member, transfer ownership)
+- `[ ] 4.2` Usage metering engine (track events, quotas, and monthly resets)
+- `[ ] 4.3` Hard enforcement of plan entitlements (API + UI guards from one policy layer)
+- `[ ] 4.4` API access layer (workspace API tokens, scoped permissions, rate limits)
+- `[ ] 4.5` Outbound integration webhooks (tenant-configured endpoints, signatures, retries)
+- `[ ] 4.6` Customer-facing changelog and in-app release notes feed
 
 ## Rules We Follow
 
