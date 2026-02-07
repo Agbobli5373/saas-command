@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\WorkspaceRole;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Services\Billing\BillingService;
@@ -197,4 +198,36 @@ test('subscribed users can access workspace', function () {
         ->get(route('workspace'));
 
     $response->assertOk();
+});
+
+test('workspace members cannot access billing settings', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+    $member->switchWorkspace($workspace);
+
+    $response = $this
+        ->actingAs($member)
+        ->get(route('billing.edit'));
+
+    $response->assertForbidden();
+});
+
+test('workspace members cannot start checkout', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+    $member->switchWorkspace($workspace);
+
+    $response = $this
+        ->actingAs($member)
+        ->post(route('billing.checkout'), [
+            'plan' => 'starter_monthly',
+        ]);
+
+    $response->assertForbidden();
 });

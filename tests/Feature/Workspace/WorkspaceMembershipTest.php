@@ -57,9 +57,24 @@ test('users cannot switch to a workspace they do not belong to', function () {
             'workspace_id' => $workspace->id,
         ]);
 
-    $response->assertSessionHasErrors('workspace_id');
+    $response->assertForbidden();
 
     expect($user->fresh()->current_workspace_id)->not->toBe($workspace->id);
+});
+
+test('active workspace ignores invalid current workspace assignment', function () {
+    $user = User::factory()->create();
+    $foreignWorkspace = Workspace::factory()->create();
+
+    $user->forceFill([
+        'current_workspace_id' => $foreignWorkspace->id,
+    ])->save();
+
+    $activeWorkspace = $user->activeWorkspace();
+
+    expect($activeWorkspace)->not->toBeNull()
+        ->and($activeWorkspace->id)->not->toBe($foreignWorkspace->id)
+        ->and($user->fresh()->current_workspace_id)->toBe($activeWorkspace->id);
 });
 
 test('dashboard shares active workspace context for authenticated users', function () {
