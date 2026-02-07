@@ -98,7 +98,7 @@ class User extends Authenticatable
     {
         $workspace = $this->currentWorkspace()->first();
 
-        if ($workspace !== null) {
+        if ($workspace !== null && $this->belongsToWorkspace($workspace)) {
             return $workspace;
         }
 

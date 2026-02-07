@@ -3,11 +3,15 @@
 namespace App\Providers;
 
 use App\Models\Workspace;
+use App\Models\WorkspaceInvitation;
+use App\Policies\WorkspaceInvitationPolicy;
+use App\Policies\WorkspacePolicy;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\CashierBillingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Cashier\Cashier;
@@ -28,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configurePolicies();
         $this->configureCashier();
         $this->configureStripeBillingWarnings();
     }
@@ -96,5 +101,11 @@ class AppServiceProvider extends ServiceProvider
     protected function configureCashier(): void
     {
         Cashier::useCustomerModel(Workspace::class);
+    }
+
+    protected function configurePolicies(): void
+    {
+        Gate::policy(Workspace::class, WorkspacePolicy::class);
+        Gate::policy(WorkspaceInvitation::class, WorkspaceInvitationPolicy::class);
     }
 }
