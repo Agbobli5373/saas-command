@@ -1,5 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
-import { AlertTriangle, Check, CheckCircle2, CircleAlert, CreditCard, Receipt } from 'lucide-react';
+import { AlertTriangle, Check, CircleAlert, CreditCard, Receipt } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import BillingController from '@/actions/App/Http/Controllers/Settings/BillingController';
 import Heading from '@/components/heading';
@@ -43,7 +43,7 @@ type BillingInvoice = {
 };
 
 type BillingWebhookOutcome = {
-    status: 'warning' | 'success';
+    status: 'warning';
     message: string;
     occurredAt: string;
 };
@@ -132,22 +132,21 @@ export default function Billing({
                     ) : null}
 
                     {webhookOutcome ? (
-                        <Alert
-                            variant={webhookOutcome.status === 'warning' ? 'destructive' : 'default'}
-                        >
-                            {webhookOutcome.status === 'warning' ? (
-                                <AlertTriangle className="h-4 w-4" />
-                            ) : (
-                                <CheckCircle2 className="h-4 w-4" />
-                            )}
-                            <AlertTitle>
-                                {webhookOutcome.status === 'warning'
-                                    ? 'Payment attention required'
-                                    : 'Payment recovered'}
-                            </AlertTitle>
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Payment attention required</AlertTitle>
                             <AlertDescription>
                                 {webhookOutcome.message} Last update on{' '}
                                 {new Date(webhookOutcome.occurredAt).toLocaleString()}.
+                                <div className="mt-3">
+                                    <Form {...BillingController.portal.form()}>
+                                        {({ processing }) => (
+                                            <Button size="sm" disabled={processing || !isSubscribed}>
+                                                Update payment method
+                                            </Button>
+                                        )}
+                                    </Form>
+                                </div>
                             </AlertDescription>
                         </Alert>
                     ) : null}

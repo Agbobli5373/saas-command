@@ -99,14 +99,14 @@ test('billing settings page shows payment warning outcome when payment failed re
     );
 });
 
-test('billing settings page shows payment recovery outcome when failure is followed by recovery event', function () {
+test('billing settings page clears payment warning when failure is resolved', function () {
     $user = User::factory()->create();
 
     StripeWebhookEvent::query()->create([
         'stripe_event_id' => 'evt_failed_124',
         'event_type' => 'invoice.payment_failed',
-        'status' => 'action_required',
-        'message' => 'Invoice payment failed.',
+        'status' => 'resolved',
+        'message' => 'Payment issue was resolved.',
         'payload' => ['id' => 'evt_failed_124'],
         'handled_by_cashier_at' => now()->subMinutes(5),
         'processed_at' => now()->subMinutes(5),
@@ -114,24 +114,12 @@ test('billing settings page shows payment recovery outcome when failure is follo
         'updated_at' => now()->subMinutes(5),
     ]);
 
-    StripeWebhookEvent::query()->create([
-        'stripe_event_id' => 'evt_recovered_124',
-        'event_type' => 'invoice.paid',
-        'status' => 'ignored',
-        'message' => 'Invoice paid.',
-        'payload' => ['id' => 'evt_recovered_124'],
-        'handled_by_cashier_at' => now()->subMinutes(1),
-        'processed_at' => now()->subMinutes(1),
-        'created_at' => now()->subMinutes(1),
-        'updated_at' => now()->subMinutes(1),
-    ]);
-
     $response = $this
         ->actingAs($user)
         ->get(route('billing.edit'));
 
     $response->assertInertia(fn (Assert $page) => $page
-        ->where('webhookOutcome.status', 'success')
+        ->where('webhookOutcome', null)
     );
 });
 

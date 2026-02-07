@@ -211,31 +211,18 @@ class BillingController extends Controller
     }
 
     /**
-     * @return array{status: string, message: string, occurredAt: string}|null
+     * @return array{status: 'warning', message: string, occurredAt: string}|null
      */
     private function webhookOutcome(): ?array
     {
         $failedEvent = StripeWebhookEvent::query()
             ->where('event_type', 'invoice.payment_failed')
+            ->where('status', 'action_required')
             ->latest('created_at')
             ->first();
 
         if ($failedEvent === null) {
             return null;
-        }
-
-        $recoveredEvent = StripeWebhookEvent::query()
-            ->whereIn('event_type', ['invoice.paid', 'customer.subscription.updated', 'checkout.session.completed'])
-            ->where('created_at', '>=', $failedEvent->created_at)
-            ->latest('created_at')
-            ->first();
-
-        if ($recoveredEvent !== null) {
-            return [
-                'status' => 'success',
-                'message' => 'A recent payment issue was resolved successfully.',
-                'occurredAt' => $recoveredEvent->created_at->toIso8601String(),
-            ];
         }
 
         return [
