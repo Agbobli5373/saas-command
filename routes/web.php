@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Billing\StripeWebhookController;
 use App\Http\Controllers\Workspace\CurrentWorkspaceController;
+use App\Http\Controllers\Workspace\WorkspaceController;
+use App\Http\Controllers\Workspace\WorkspaceInvitationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -21,10 +23,16 @@ Route::get('dashboard', function () {
 Route::middleware(['auth'])->group(function () {
     Route::put('workspaces/current', [CurrentWorkspaceController::class, 'update'])
         ->name('workspaces.current.update');
+
+    Route::post('workspaces/invitations', [WorkspaceInvitationController::class, 'store'])
+        ->name('workspaces.invitations.store');
+
+    Route::get('workspaces/invitations/{token}/accept', [WorkspaceInvitationController::class, 'accept'])
+        ->name('workspaces.invitations.accept');
 });
 
-Route::get('workspace', function () {
-    return Inertia::render('workspace');
-})->middleware(['auth', 'verified', 'subscribed'])->name('workspace');
+Route::get('workspace', [WorkspaceController::class, 'show'])
+    ->middleware(['auth', 'verified', 'subscribed'])
+    ->name('workspace');
 
 require __DIR__.'/settings.php';
