@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Billing\StripeWebhookController;
+use App\Http\Controllers\Workspace\CurrentWorkspaceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -16,6 +17,11 @@ Route::get('/', function () {
 Route::get('dashboard', function () {
     return Inertia::render('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware(['auth'])->group(function () {
+    Route::put('workspaces/current', [CurrentWorkspaceController::class, 'update'])
+        ->name('workspaces.current.update');
+});
 
 Route::get('workspace', function () {
     return Inertia::render('workspace');

@@ -1,5 +1,5 @@
-import { Link, router } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Building2, Check, LogOut, Settings } from 'lucide-react';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -10,7 +10,8 @@ import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
-import type { User } from '@/types';
+import { update as updateCurrentWorkspace } from '@/routes/workspaces/current';
+import type { SharedData, User } from '@/types';
 
 type Props = {
     user: User;
@@ -18,10 +19,26 @@ type Props = {
 
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
+    const { auth } = usePage<SharedData>().props;
 
     const handleLogout = () => {
         cleanup();
         router.flushAll();
+    };
+
+    const handleWorkspaceSwitch = (workspaceId: number) => {
+        cleanup();
+
+        router.put(
+            updateCurrentWorkspace.url(),
+            {
+                workspace_id: workspaceId,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
     };
 
     return (
@@ -45,6 +62,27 @@ export function UserMenuContent({ user }: Props) {
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
+            {auth.workspaces.length > 0 ? (
+                <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                        {auth.workspaces.map((workspace) => (
+                            <DropdownMenuItem
+                                key={workspace.id}
+                                className="cursor-pointer"
+                                disabled={workspace.id === auth.current_workspace?.id}
+                                onClick={() => handleWorkspaceSwitch(workspace.id)}
+                            >
+                                <Building2 className="mr-2" />
+                                <span className="flex-1 truncate">{workspace.name}</span>
+                                {workspace.id === auth.current_workspace?.id ? (
+                                    <Check className="size-4 text-muted-foreground" />
+                                ) : null}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuGroup>
+                </>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link

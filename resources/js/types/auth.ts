@@ -10,8 +10,18 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type Workspace = {
+    id: number;
+    name: string;
+    owner_id: number;
+    is_personal: boolean;
+    role: 'owner' | 'admin' | 'member';
+};
+
 export type Auth = {
     user: User;
+    workspaces: Workspace[];
+    current_workspace: Workspace | null;
 };
 
 export type TwoFactorSetupData = {
