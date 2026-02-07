@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\WorkspaceRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Cashier\Billable;
@@ -23,6 +27,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'current_workspace_id',
     ];
 
     /**
@@ -49,5 +54,94 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Boot model event hooks.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $user): void {
+            $user->provisionPersonalWorkspace();
+        });
+    }
+
+    /**
+     * Get the workspaces owned by the user.
+     */
+    public function ownedWorkspaces(): HasMany
+    {
+        return $this->hasMany(Workspace::class, 'owner_id');
+    }
+
+    /**
+     * Get all workspaces this user belongs to.
+     */
+    public function workspaces(): BelongsToMany
+    {
+        return $this->belongsToMany(Workspace::class, 'workspace_user')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the user's active workspace.
+     */
+    public function currentWorkspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'current_workspace_id');
+    }
+
+    /**
+     * Switch the user's active workspace.
+     */
+    public function switchWorkspace(Workspace $workspace): bool
+    {
+        $belongsToWorkspace = $this->workspaces()
+            ->where('workspaces.id', $workspace->id)
+            ->exists();
+
+        if (! $belongsToWorkspace) {
+            return false;
+        }
+
+        $this->forceFill([
+            'current_workspace_id' => $workspace->id,
+        ])->save();
+
+        return true;
+    }
+
+    /**
+     * Create the default personal workspace for the user.
+     */
+    public function provisionPersonalWorkspace(): Workspace
+    {
+        $existingWorkspace = $this->ownedWorkspaces()
+            ->where('is_personal', true)
+            ->first();
+
+        if ($existingWorkspace !== null) {
+            if ($this->current_workspace_id === null) {
+                $this->forceFill([
+                    'current_workspace_id' => $existingWorkspace->id,
+                ])->saveQuietly();
+            }
+
+            return $existingWorkspace;
+        }
+
+        $workspace = $this->ownedWorkspaces()->create([
+            'name' => sprintf('%s Workspace', $this->name),
+            'is_personal' => true,
+        ]);
+
+        $workspace->addMember($this, WorkspaceRole::Owner);
+
+        $this->forceFill([
+            'current_workspace_id' => $workspace->id,
+        ])->saveQuietly();
+
+        return $workspace;
     }
 }
