@@ -1,15 +1,34 @@
 <?php
 
+use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Services\Billing\BillingService;
 use Inertia\Testing\AssertableInertia as Assert;
 use Mockery\MockInterface;
 
 beforeEach(function () {
-    config()->set('services.stripe.prices', [
-        'starter_monthly' => 'price_monthly_123',
-        'starter_yearly' => 'price_yearly_123',
+    config()->set('services.stripe.plans', [
+        'starter_monthly' => [
+            'price_id' => 'price_monthly_123',
+            'title' => 'Starter Monthly',
+            'price_label' => '$29',
+            'interval_label' => '/month',
+            'description' => 'Monthly plan',
+            'features' => ['Feature A'],
+            'highlighted' => false,
+        ],
+        'starter_yearly' => [
+            'price_id' => 'price_yearly_123',
+            'title' => 'Starter Yearly',
+            'price_label' => '$290',
+            'interval_label' => '/year',
+            'description' => 'Yearly plan',
+            'features' => ['Feature B'],
+            'highlighted' => true,
+        ],
     ]);
+
+    config()->set('services.stripe.warnings', []);
 });
 
 test('billing settings page is displayed', function () {
@@ -22,7 +41,7 @@ test('billing settings page is displayed', function () {
     $response->assertOk();
 });
 
-test('billing settings page shares invoice history', function () {
+test('billing settings page shares plan metadata and invoice history', function () {
     $user = User::factory()->create();
 
     $this->mock(BillingService::class, function (MockInterface $mock): void {
@@ -38,7 +57,7 @@ test('billing settings page shares invoice history', function () {
                     'date' => '2026-02-07',
                     'currency' => 'USD',
                     'hostedInvoiceUrl' => 'https://example.test/invoice',
-                    'invoicePdfUrl' => null,
+                    'invoicePdfUrl' => 'https://example.test/invoice.pdf',
                 ],
             ]);
     });
@@ -49,9 +68,70 @@ test('billing settings page shares invoice history', function () {
 
     $response->assertInertia(fn (Assert $page) => $page
         ->component('settings/billing')
+        ->has('plans', 2)
+        ->where('plans.0.key', 'starter_monthly')
+        ->where('plans.0.title', 'Starter Monthly')
         ->has('invoices', 1)
         ->where('invoices.0.id', 'in_test_123')
-        ->where('invoices.0.status', 'paid')
+        ->where('invoices.0.invoicePdfUrl', 'https://example.test/invoice.pdf')
+    );
+});
+
+test('billing settings page shows payment warning outcome when payment failed recently', function () {
+    $user = User::factory()->create();
+
+    StripeWebhookEvent::query()->create([
+        'stripe_event_id' => 'evt_failed_123',
+        'event_type' => 'invoice.payment_failed',
+        'status' => 'action_required',
+        'message' => 'Invoice payment failed.',
+        'payload' => ['id' => 'evt_failed_123'],
+        'handled_by_cashier_at' => now(),
+        'processed_at' => now(),
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('webhookOutcome.status', 'warning')
+    );
+});
+
+test('billing settings page shows payment recovery outcome when failure is followed by recovery event', function () {
+    $user = User::factory()->create();
+
+    StripeWebhookEvent::query()->create([
+        'stripe_event_id' => 'evt_failed_124',
+        'event_type' => 'invoice.payment_failed',
+        'status' => 'action_required',
+        'message' => 'Invoice payment failed.',
+        'payload' => ['id' => 'evt_failed_124'],
+        'handled_by_cashier_at' => now()->subMinutes(5),
+        'processed_at' => now()->subMinutes(5),
+        'created_at' => now()->subMinutes(5),
+        'updated_at' => now()->subMinutes(5),
+    ]);
+
+    StripeWebhookEvent::query()->create([
+        'stripe_event_id' => 'evt_recovered_124',
+        'event_type' => 'invoice.paid',
+        'status' => 'ignored',
+        'message' => 'Invoice paid.',
+        'payload' => ['id' => 'evt_recovered_124'],
+        'handled_by_cashier_at' => now()->subMinutes(1),
+        'processed_at' => now()->subMinutes(1),
+        'created_at' => now()->subMinutes(1),
+        'updated_at' => now()->subMinutes(1),
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('webhookOutcome.status', 'success')
     );
 });
 

@@ -43,11 +43,18 @@ class BillingCheckoutRequest extends FormRequest
      */
     private function plans(): array
     {
-        /** @var array<string, string> $plans */
-        $plans = array_filter(
-            config('services.stripe.prices', []),
-            static fn (mixed $value): bool => is_string($value) && $value !== ''
-        );
+        /** @var array<string, array<string, mixed>> $configuredPlans */
+        $configuredPlans = config('services.stripe.plans', []);
+
+        $plans = [];
+
+        foreach ($configuredPlans as $planKey => $plan) {
+            $priceId = $plan['price_id'] ?? null;
+
+            if (is_string($priceId) && $priceId !== '') {
+                $plans[$planKey] = $priceId;
+            }
+        }
 
         return $plans;
     }

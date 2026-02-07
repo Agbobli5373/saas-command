@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureStripeBillingWarnings();
     }
 
     protected function configureDefaults(): void
@@ -45,5 +46,47 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null
         );
+    }
+
+    protected function configureStripeBillingWarnings(): void
+    {
+        $warnings = [];
+
+        $stripeKey = config('services.stripe.key');
+        $stripeSecret = config('services.stripe.secret');
+
+        if (! is_string($stripeKey) || $stripeKey === '') {
+            $warnings[] = 'Stripe publishable key is missing. Set STRIPE_KEY in your .env.';
+        }
+
+        if (! is_string($stripeSecret) || $stripeSecret === '') {
+            $warnings[] = 'Stripe secret key is missing. Set STRIPE_SECRET in your .env.';
+        }
+
+        /** @var array<string, array<string, mixed>> $plans */
+        $plans = config('services.stripe.plans', []);
+        $priceIds = [];
+
+        foreach ($plans as $planKey => $plan) {
+            $priceId = $plan['price_id'] ?? null;
+
+            if (! is_string($priceId) || $priceId === '') {
+                $warnings[] = sprintf(
+                    'Stripe price for "%s" is missing. Set %s in your .env.',
+                    $plan['title'] ?? $planKey,
+                    strtoupper('stripe_price_'.$planKey)
+                );
+
+                continue;
+            }
+
+            $priceIds[] = $priceId;
+        }
+
+        if (count($priceIds) !== count(array_unique($priceIds))) {
+            $warnings[] = 'Monthly and yearly plans must use different Stripe price IDs.';
+        }
+
+        config()->set('services.stripe.warnings', $warnings);
     }
 }

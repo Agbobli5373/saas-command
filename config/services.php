@@ -40,9 +40,33 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'trial_days' => env('STRIPE_TRIAL_DAYS', 14),
-        'prices' => [
-            'starter_monthly' => env('STRIPE_PRICE_STARTER_MONTHLY'),
-            'starter_yearly' => env('STRIPE_PRICE_STARTER_YEARLY'),
+        'plans' => [
+            'starter_monthly' => [
+                'price_id' => env('STRIPE_PRICE_STARTER_MONTHLY'),
+                'title' => 'Starter Monthly',
+                'price_label' => '$29',
+                'interval_label' => '/month',
+                'description' => 'Best for early-stage SaaS projects that need fast iteration.',
+                'features' => [
+                    'Unlimited authenticated users',
+                    'Stripe subscription billing',
+                    'Core analytics and event tracking',
+                ],
+                'highlighted' => false,
+            ],
+            'starter_yearly' => [
+                'price_id' => env('STRIPE_PRICE_STARTER_YEARLY'),
+                'title' => 'Starter Yearly',
+                'price_label' => '$290',
+                'interval_label' => '/year',
+                'description' => 'Lower annual cost with everything in monthly included.',
+                'features' => [
+                    'Everything in Starter Monthly',
+                    'Annual savings over monthly billing',
+                    'Priority email support',
+                ],
+                'highlighted' => true,
+            ],
         ],
     ],
 

@@ -1,5 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
-import { Check, CircleAlert, CreditCard } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, CircleAlert, CreditCard, Receipt } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import BillingController from '@/actions/App/Http/Controllers/Settings/BillingController';
 import Heading from '@/components/heading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,34 +19,48 @@ import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/billing';
 import type { BreadcrumbItem } from '@/types';
 
-type BillingProps = {
-    status?: string;
-    plans: Record<string, string>;
-    currentPriceId?: string | null;
-    isSubscribed: boolean;
-    onGracePeriod: boolean;
-    endsAt?: string | null;
-    invoices: Array<{
-        id: string;
-        number: string | null;
-        status: string;
-        total: string;
-        amountPaid: string;
-        date: string;
-        currency: string;
-        hostedInvoiceUrl: string | null;
-        invoicePdfUrl: string | null;
-    }>;
-};
-
-type PlanMeta = {
+type BillingPlan = {
+    key: string;
+    priceId: string;
     title: string;
     priceLabel: string;
     intervalLabel: string;
     description: string;
     features: string[];
-    highlighted?: boolean;
+    highlighted: boolean;
 };
+
+type BillingInvoice = {
+    id: string;
+    number: string | null;
+    status: string;
+    total: string;
+    amountPaid: string;
+    date: string;
+    currency: string;
+    hostedInvoiceUrl: string | null;
+    invoicePdfUrl: string | null;
+};
+
+type BillingWebhookOutcome = {
+    status: 'warning' | 'success';
+    message: string;
+    occurredAt: string;
+};
+
+type BillingProps = {
+    status?: string;
+    plans: BillingPlan[];
+    stripeConfigWarnings: string[];
+    webhookOutcome: BillingWebhookOutcome | null;
+    currentPriceId?: string | null;
+    isSubscribed: boolean;
+    onGracePeriod: boolean;
+    endsAt?: string | null;
+    invoices: BillingInvoice[];
+};
+
+type InvoiceFilter = 'all' | 'paid' | 'open' | 'failed';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -54,43 +69,45 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const planMeta: Record<string, PlanMeta> = {
-    starter_monthly: {
-        title: 'Starter Monthly',
-        priceLabel: '$29',
-        intervalLabel: '/month',
-        description: 'Best for early-stage SaaS projects that need fast iteration.',
-        features: [
-            'Unlimited authenticated users',
-            'Stripe subscription billing',
-            'Core analytics and event tracking',
-        ],
-    },
-    starter_yearly: {
-        title: 'Starter Yearly',
-        priceLabel: '$290',
-        intervalLabel: '/year',
-        description: 'Lower annual cost with everything in monthly included.',
-        features: [
-            'Everything in Starter Monthly',
-            'Annual savings over monthly billing',
-            'Priority email support',
-        ],
-        highlighted: true,
-    },
+const invoiceFilterLabels: Record<InvoiceFilter, string> = {
+    all: 'All',
+    paid: 'Paid',
+    open: 'Open',
+    failed: 'Failed',
 };
+
+const failedStatuses = new Set(['uncollectible', 'void']);
+const openStatuses = new Set(['open', 'draft']);
 
 export default function Billing({
     status,
     plans,
+    stripeConfigWarnings,
+    webhookOutcome,
     currentPriceId,
     isSubscribed,
     onGracePeriod,
     endsAt,
     invoices,
 }: BillingProps) {
-    const availablePlans = Object.entries(plans);
-    const defaultPlan = availablePlans[0]?.[0] ?? null;
+    const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
+    const defaultPlan = plans[0]?.key ?? null;
+
+    const filteredInvoices = useMemo(() => {
+        if (invoiceFilter === 'all') {
+            return invoices;
+        }
+
+        if (invoiceFilter === 'paid') {
+            return invoices.filter((invoice) => invoice.status === 'paid');
+        }
+
+        if (invoiceFilter === 'open') {
+            return invoices.filter((invoice) => openStatuses.has(invoice.status));
+        }
+
+        return invoices.filter((invoice) => failedStatuses.has(invoice.status));
+    }, [invoiceFilter, invoices]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -113,6 +130,35 @@ export default function Billing({
                             <AlertDescription>{status}</AlertDescription>
                         </Alert>
                     ) : null}
+
+                    {webhookOutcome ? (
+                        <Alert
+                            variant={webhookOutcome.status === 'warning' ? 'destructive' : 'default'}
+                        >
+                            {webhookOutcome.status === 'warning' ? (
+                                <AlertTriangle className="h-4 w-4" />
+                            ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            <AlertTitle>
+                                {webhookOutcome.status === 'warning'
+                                    ? 'Payment attention required'
+                                    : 'Payment recovered'}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {webhookOutcome.message} Last update on{' '}
+                                {new Date(webhookOutcome.occurredAt).toLocaleString()}.
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
+
+                    {stripeConfigWarnings.map((warning) => (
+                        <Alert key={warning} variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Stripe configuration warning</AlertTitle>
+                            <AlertDescription>{warning}</AlertDescription>
+                        </Alert>
+                    ))}
 
                     <Card className="border-border/70 bg-gradient-to-br from-background via-background to-muted/30">
                         <CardHeader className="gap-5">
@@ -183,19 +229,35 @@ export default function Billing({
                     </Card>
 
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Invoice history</CardTitle>
-                            <CardDescription>
-                                Recent billing invoices from your Stripe customer account.
-                            </CardDescription>
+                        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+                            <div>
+                                <CardTitle>Invoice history</CardTitle>
+                                <CardDescription>
+                                    Recent billing invoices from your Stripe customer account.
+                                </CardDescription>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {(Object.keys(invoiceFilterLabels) as InvoiceFilter[]).map((filter) => (
+                                    <Button
+                                        key={filter}
+                                        type="button"
+                                        size="sm"
+                                        variant={invoiceFilter === filter ? 'default' : 'outline'}
+                                        onClick={() => setInvoiceFilter(filter)}
+                                    >
+                                        {invoiceFilterLabels[filter]}
+                                    </Button>
+                                ))}
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {invoices.length === 0 ? (
+                            {filteredInvoices.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No invoices yet. Completed subscription payments will appear here.
+                                    No invoices found for the selected filter.
                                 </p>
                             ) : (
-                                invoices.map((invoice) => (
+                                filteredInvoices.map((invoice) => (
                                     <div
                                         key={invoice.id}
                                         className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 px-4 py-3"
@@ -224,6 +286,17 @@ export default function Billing({
                                                     View
                                                 </a>
                                             ) : null}
+                                            {invoice.invoicePdfUrl ? (
+                                                <a
+                                                    href={invoice.invoicePdfUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-4"
+                                                >
+                                                    <Receipt className="h-3.5 w-3.5" />
+                                                    PDF
+                                                </a>
+                                            ) : null}
                                         </div>
                                     </div>
                                 ))
@@ -231,7 +304,7 @@ export default function Billing({
                         </CardContent>
                     </Card>
 
-                    {availablePlans.length === 0 ? (
+                    {plans.length === 0 ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
                             <AlertTitle>No plans configured</AlertTitle>
@@ -242,40 +315,37 @@ export default function Billing({
                         </Alert>
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2">
-                            {availablePlans.map(([planKey, priceId]) => {
-                                const metadata = planMeta[planKey];
-                                const isCurrent = currentPriceId === priceId;
+                            {plans.map((plan) => {
+                                const isCurrent = currentPriceId === plan.priceId;
 
                                 return (
                                     <Card
-                                        key={planKey}
-                                        className={metadata?.highlighted ? 'border-primary/40 shadow-sm' : ''}
+                                        key={plan.key}
+                                        className={plan.highlighted ? 'border-primary/40 shadow-sm' : ''}
                                     >
                                         <CardHeader className="space-y-3">
                                             <div className="flex items-center justify-between gap-2">
-                                                <CardTitle>{metadata?.title ?? planKey}</CardTitle>
+                                                <CardTitle>{plan.title}</CardTitle>
                                                 {isCurrent ? (
                                                     <Badge>Current</Badge>
-                                                ) : metadata?.highlighted ? (
+                                                ) : plan.highlighted ? (
                                                     <Badge variant="secondary">Popular</Badge>
                                                 ) : null}
                                             </div>
 
-                                            <CardDescription>
-                                                {metadata?.description ?? 'Subscription plan'}
-                                            </CardDescription>
+                                            <CardDescription>{plan.description}</CardDescription>
 
                                             <p className="text-2xl font-semibold tracking-tight">
-                                                {metadata?.priceLabel ?? 'Configured in Stripe'}
+                                                {plan.priceLabel}
                                                 <span className="ml-1 text-sm font-normal text-muted-foreground">
-                                                    {metadata?.intervalLabel ?? ''}
+                                                    {plan.intervalLabel}
                                                 </span>
                                             </p>
                                         </CardHeader>
 
                                         <CardContent>
                                             <ul className="space-y-2 text-sm text-muted-foreground">
-                                                {(metadata?.features ?? []).map((feature) => (
+                                                {plan.features.map((feature) => (
                                                     <li key={feature} className="flex items-start gap-2">
                                                         <Check className="mt-0.5 h-4 w-4 text-primary" />
                                                         <span>{feature}</span>
@@ -289,9 +359,9 @@ export default function Billing({
                                                 <Form {...BillingController.checkout.form()} className="w-full">
                                                     {({ processing }) => (
                                                         <>
-                                                            <input type="hidden" name="plan" value={planKey} />
+                                                            <input type="hidden" name="plan" value={plan.key} />
                                                             <Button className="w-full" disabled={processing || isCurrent}>
-                                                                Start with {metadata?.title ?? 'this plan'}
+                                                                Start with {plan.title}
                                                             </Button>
                                                         </>
                                                     )}
@@ -300,13 +370,13 @@ export default function Billing({
                                                 <Form {...BillingController.swap.form()} className="w-full">
                                                     {({ processing }) => (
                                                         <>
-                                                            <input type="hidden" name="plan" value={planKey} />
+                                                            <input type="hidden" name="plan" value={plan.key} />
                                                             <Button
                                                                 variant="outline"
                                                                 className="w-full"
                                                                 disabled={processing || isCurrent}
                                                             >
-                                                                Switch to {metadata?.title ?? 'this plan'}
+                                                                Switch to {plan.title}
                                                             </Button>
                                                         </>
                                                     )}

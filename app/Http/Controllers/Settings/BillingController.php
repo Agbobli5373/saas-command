@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\BillingCheckoutRequest;
 use App\Http\Requests\Settings\BillingSwapRequest;
+use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Services\Billing\BillingService;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,9 @@ class BillingController extends Controller
 
         return Inertia::render('settings/billing', [
             'status' => $request->session()->get('status'),
-            'plans' => $plans,
+            'plans' => array_values($plans),
+            'stripeConfigWarnings' => $this->stripeConfigWarnings(),
+            'webhookOutcome' => $this->webhookOutcome(),
             'currentPriceId' => $subscription?->stripe_price,
             'isSubscribed' => $user?->subscribed('default') ?? false,
             'onGracePeriod' => $subscription?->onGracePeriod() ?? false,
@@ -42,7 +45,7 @@ class BillingController extends Controller
     public function checkout(BillingCheckoutRequest $request, BillingService $billing): SymfonyResponse
     {
         $planKey = $request->validated('plan');
-        $priceId = $this->plans()[$planKey] ?? null;
+        $priceId = $this->plans()[$planKey]['priceId'] ?? null;
 
         if ($priceId === null) {
             return to_route('billing.edit')->with('status', 'Invalid plan selected.');
@@ -86,7 +89,7 @@ class BillingController extends Controller
     public function swap(BillingSwapRequest $request, BillingService $billing): RedirectResponse
     {
         $planKey = $request->validated('plan');
-        $priceId = $this->plans()[$planKey] ?? null;
+        $priceId = $this->plans()[$planKey]['priceId'] ?? null;
 
         if ($priceId === null) {
             return to_route('billing.edit')->with('status', 'Invalid plan selected.');
@@ -130,17 +133,59 @@ class BillingController extends Controller
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, array{
+     *     key: string,
+     *     priceId: string,
+     *     title: string,
+     *     priceLabel: string,
+     *     intervalLabel: string,
+     *     description: string,
+     *     features: array<int, string>,
+     *     highlighted: bool
+     * }>
      */
     private function plans(): array
     {
-        /** @var array<string, string> $plans */
-        $plans = array_filter(
-            config('services.stripe.prices', []),
-            static fn (mixed $value): bool => is_string($value) && $value !== ''
-        );
+        /** @var array<string, array<string, mixed>> $configuredPlans */
+        $configuredPlans = config('services.stripe.plans', []);
+        $plans = [];
+
+        foreach ($configuredPlans as $planKey => $plan) {
+            $priceId = $plan['price_id'] ?? null;
+
+            if (! is_string($priceId) || $priceId === '') {
+                continue;
+            }
+
+            $features = collect($plan['features'] ?? [])
+                ->filter(static fn (mixed $feature): bool => is_string($feature) && $feature !== '')
+                ->values()
+                ->all();
+
+            $plans[$planKey] = [
+                'key' => $planKey,
+                'priceId' => $priceId,
+                'title' => is_string($plan['title'] ?? null) && $plan['title'] !== '' ? $plan['title'] : $planKey,
+                'priceLabel' => is_string($plan['price_label'] ?? null) ? $plan['price_label'] : '',
+                'intervalLabel' => is_string($plan['interval_label'] ?? null) ? $plan['interval_label'] : '',
+                'description' => is_string($plan['description'] ?? null) ? $plan['description'] : '',
+                'features' => $features,
+                'highlighted' => (bool) ($plan['highlighted'] ?? false),
+            ];
+        }
 
         return $plans;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function stripeConfigWarnings(): array
+    {
+        /** @var array<int, string> $warnings */
+        $warnings = config('services.stripe.warnings', []);
+
+        return $warnings;
     }
 
     /**
@@ -163,5 +208,40 @@ class BillingController extends Controller
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * @return array{status: string, message: string, occurredAt: string}|null
+     */
+    private function webhookOutcome(): ?array
+    {
+        $failedEvent = StripeWebhookEvent::query()
+            ->where('event_type', 'invoice.payment_failed')
+            ->latest('created_at')
+            ->first();
+
+        if ($failedEvent === null) {
+            return null;
+        }
+
+        $recoveredEvent = StripeWebhookEvent::query()
+            ->whereIn('event_type', ['invoice.paid', 'customer.subscription.updated', 'checkout.session.completed'])
+            ->where('created_at', '>=', $failedEvent->created_at)
+            ->latest('created_at')
+            ->first();
+
+        if ($recoveredEvent !== null) {
+            return [
+                'status' => 'success',
+                'message' => 'A recent payment issue was resolved successfully.',
+                'occurredAt' => $recoveredEvent->created_at->toIso8601String(),
+            ];
+        }
+
+        return [
+            'status' => 'warning',
+            'message' => 'Recent payment attempt failed. Ask the customer to update their payment method.',
+            'occurredAt' => $failedEvent->created_at->toIso8601String(),
+        ];
     }
 }
