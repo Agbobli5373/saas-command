@@ -25,6 +25,17 @@ type BillingProps = {
     isSubscribed: boolean;
     onGracePeriod: boolean;
     endsAt?: string | null;
+    invoices: Array<{
+        id: string;
+        number: string | null;
+        status: string;
+        total: string;
+        amountPaid: string;
+        date: string;
+        currency: string;
+        hostedInvoiceUrl: string | null;
+        invoicePdfUrl: string | null;
+    }>;
 };
 
 type PlanMeta = {
@@ -76,6 +87,7 @@ export default function Billing({
     isSubscribed,
     onGracePeriod,
     endsAt,
+    invoices,
 }: BillingProps) {
     const availablePlans = Object.entries(plans);
     const defaultPlan = availablePlans[0]?.[0] ?? null;
@@ -168,6 +180,55 @@ export default function Billing({
                                 )}
                             </Form>
                         </CardFooter>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Invoice history</CardTitle>
+                            <CardDescription>
+                                Recent billing invoices from your Stripe customer account.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {invoices.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No invoices yet. Completed subscription payments will appear here.
+                                </p>
+                            ) : (
+                                invoices.map((invoice) => (
+                                    <div
+                                        key={invoice.id}
+                                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 px-4 py-3"
+                                    >
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                                {invoice.number ?? invoice.id}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {new Date(invoice.date).toLocaleDateString()} . {invoice.currency}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant={invoice.status === 'paid' ? 'default' : 'outline'}>
+                                                {invoice.status}
+                                            </Badge>
+                                            <span className="text-sm font-medium">{invoice.total}</span>
+                                            {invoice.hostedInvoiceUrl ? (
+                                                <a
+                                                    href={invoice.hostedInvoiceUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-sm text-primary underline underline-offset-4"
+                                                >
+                                                    View
+                                                </a>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
                     </Card>
 
                     {availablePlans.length === 0 ? (
