@@ -150,3 +150,131 @@ test('removing a member decreases seat quantity but keeps minimum of one', funct
         'quantity' => 1,
     ]);
 });
+
+test('workspace owner can update a member role', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($owner)
+        ->from(route('workspace'))
+        ->patch(route('workspaces.members.update', ['member' => $member->id]), [
+            'role' => WorkspaceRole::Admin->value,
+        ]);
+
+    $response->assertRedirect(route('workspace'));
+
+    $this->assertDatabaseHas('workspace_user', [
+        'workspace_id' => $workspace->id,
+        'user_id' => $member->id,
+        'role' => WorkspaceRole::Admin->value,
+    ]);
+});
+
+test('workspace members cannot update other member roles', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+    $member->switchWorkspace($workspace);
+
+    $targetMember = User::factory()->create();
+    $workspace->addMember($targetMember, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($member)
+        ->patch(route('workspaces.members.update', ['member' => $targetMember->id]), [
+            'role' => WorkspaceRole::Admin->value,
+        ]);
+
+    $response->assertForbidden();
+});
+
+test('workspace owner can remove a member through endpoint', function () {
+    config()->set('services.stripe.seat_quantity.sync_with_stripe', false);
+
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+    $workspace->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_member_remove_endpoint_123',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_monthly_123',
+        'quantity' => 2,
+    ]);
+
+    $member = User::factory()->create();
+    $workspace->addMember($member, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($owner)
+        ->from(route('workspace'))
+        ->delete(route('workspaces.members.destroy', ['member' => $member->id]));
+
+    $response->assertRedirect(route('workspace'));
+
+    $this->assertDatabaseMissing('workspace_user', [
+        'workspace_id' => $workspace->id,
+        'user_id' => $member->id,
+    ]);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'stripe_id' => 'sub_member_remove_endpoint_123',
+        'quantity' => 1,
+    ]);
+});
+
+test('workspace owner can transfer ownership to another member', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $admin = User::factory()->create();
+    $workspace->addMember($admin, WorkspaceRole::Admin);
+
+    $response = $this
+        ->actingAs($owner)
+        ->from(route('workspace'))
+        ->post(route('workspaces.ownership.transfer'), [
+            'owner_id' => $admin->id,
+        ]);
+
+    $response->assertRedirect(route('workspace'));
+
+    expect($workspace->fresh()->owner_id)->toBe($admin->id);
+
+    $this->assertDatabaseHas('workspace_user', [
+        'workspace_id' => $workspace->id,
+        'user_id' => $admin->id,
+        'role' => WorkspaceRole::Owner->value,
+    ]);
+
+    $this->assertDatabaseHas('workspace_user', [
+        'workspace_id' => $workspace->id,
+        'user_id' => $owner->id,
+        'role' => WorkspaceRole::Admin->value,
+    ]);
+});
+
+test('workspace admins cannot transfer ownership', function () {
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $admin = User::factory()->create();
+    $workspace->addMember($admin, WorkspaceRole::Admin);
+    $admin->switchWorkspace($workspace);
+
+    $target = User::factory()->create();
+    $workspace->addMember($target, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($admin)
+        ->post(route('workspaces.ownership.transfer'), [
+            'owner_id' => $target->id,
+        ]);
+
+    $response->assertForbidden();
+});
