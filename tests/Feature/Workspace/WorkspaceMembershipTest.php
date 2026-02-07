@@ -1,0 +1,80 @@
+<?php
+
+use App\Enums\WorkspaceRole;
+use App\Models\User;
+use App\Models\Workspace;
+use Inertia\Testing\AssertableInertia as Assert;
+
+test('creating a user provisions a personal workspace', function () {
+    $user = User::factory()->create([
+        'name' => 'Test Owner',
+    ]);
+
+    $user->refresh();
+
+    expect($user->current_workspace_id)->not->toBeNull();
+
+    $workspace = $user->currentWorkspace()->first();
+
+    expect($workspace)->not->toBeNull()
+        ->and($workspace->name)->toBe('Test Owner Workspace')
+        ->and($workspace->owner_id)->toBe($user->id)
+        ->and($workspace->is_personal)->toBeTrue();
+
+    $this->assertDatabaseHas('workspace_user', [
+        'workspace_id' => $workspace->id,
+        'user_id' => $user->id,
+        'role' => WorkspaceRole::Owner->value,
+    ]);
+});
+
+test('users can switch to a workspace they belong to', function () {
+    $user = User::factory()->create();
+    $workspace = Workspace::factory()->create();
+
+    $workspace->addMember($user, WorkspaceRole::Admin);
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('dashboard'))
+        ->put(route('workspaces.current.update'), [
+            'workspace_id' => $workspace->id,
+        ]);
+
+    $response->assertRedirect(route('dashboard'));
+
+    expect($user->fresh()->current_workspace_id)->toBe($workspace->id);
+});
+
+test('users cannot switch to a workspace they do not belong to', function () {
+    $user = User::factory()->create();
+    $workspace = Workspace::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('dashboard'))
+        ->put(route('workspaces.current.update'), [
+            'workspace_id' => $workspace->id,
+        ]);
+
+    $response->assertSessionHasErrors('workspace_id');
+
+    expect($user->fresh()->current_workspace_id)->not->toBe($workspace->id);
+});
+
+test('dashboard shares active workspace context for authenticated users', function () {
+    $user = User::factory()->create();
+    $workspace = Workspace::factory()->create();
+
+    $workspace->addMember($user, WorkspaceRole::Admin);
+    $user->switchWorkspace($workspace);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('dashboard'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('auth.current_workspace.id', $workspace->id)
+        ->has('auth.workspaces', 2)
+    );
+});

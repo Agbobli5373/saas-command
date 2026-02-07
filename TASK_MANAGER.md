@@ -10,7 +10,7 @@ This file is the source of truth for project execution order and status.
 
 ## Current Focus
 
-- `[-] 2.1` Multi-tenant workspace foundation (team-based subscription ownership)
+- `[ ] 2.2` Move subscription ownership from user to workspace
 
 ## Milestones
 
@@ -22,7 +22,7 @@ This file is the source of truth for project execution order and status.
 
 ### V2 Multi-tenant SaaS Core
 
-- `[-] 2.1` Workspaces + membership model (owner/admin/member)
+- `[x] 2.1` Workspaces + membership model (owner/admin/member)
 - `[ ] 2.2` Move subscription billable from user to workspace
 - `[ ] 2.3` Team invite and acceptance flow
 - `[ ] 2.4` Role-based access guards and policy checks
