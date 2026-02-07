@@ -13,6 +13,7 @@ class CashierBillingService implements BillingService
         $trialDays = (int) config('services.stripe.trial_days', 0);
 
         $subscriptionBuilder = $workspace->newSubscription('default', $priceId);
+        $subscriptionBuilder = $subscriptionBuilder->quantity($workspace->billableSeatQuantity());
 
         if ($trialDays > 0) {
             $subscriptionBuilder = $subscriptionBuilder->trialDays($trialDays);

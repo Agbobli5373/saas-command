@@ -34,9 +34,11 @@ class WorkspaceFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Workspace $workspace): void {
-            $workspace->members()->syncWithoutDetaching([
-                $workspace->owner_id => ['role' => WorkspaceRole::Owner->value],
-            ]);
+            $owner = User::query()->find($workspace->owner_id);
+
+            if ($owner !== null) {
+                $workspace->addMember($owner, WorkspaceRole::Owner);
+            }
         });
     }
 }

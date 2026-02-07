@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Cashier\Billable;
+use Throwable;
 
 class Workspace extends Model
 {
@@ -77,6 +78,21 @@ class Workspace extends Model
         $this->members()->syncWithoutDetaching([
             $user->id => ['role' => $role->value],
         ]);
+
+        $this->syncSeatQuantity();
+    }
+
+    /**
+     * Remove a member from the workspace.
+     */
+    public function removeMember(User $user): void
+    {
+        if ($user->id === $this->owner_id) {
+            return;
+        }
+
+        $this->members()->detach($user->id);
+        $this->syncSeatQuantity();
     }
 
     /**
@@ -93,5 +109,65 @@ class Workspace extends Model
     public function stripeEmail(): ?string
     {
         return $this->owner()->value('email');
+    }
+
+    /**
+     * Get the number of active seats in this workspace.
+     */
+    public function seatCount(): int
+    {
+        return $this->members()->count();
+    }
+
+    /**
+     * Get the minimum billable seat quantity.
+     */
+    public function billableSeatQuantity(): int
+    {
+        return max(1, $this->seatCount());
+    }
+
+    /**
+     * Sync subscription quantity with current seat usage.
+     */
+    public function syncSeatQuantity(string $subscriptionType = 'default'): void
+    {
+        $subscription = $this->subscriptions()
+            ->where('type', $subscriptionType)
+            ->first();
+
+        if ($subscription === null) {
+            return;
+        }
+
+        $desiredQuantity = $this->billableSeatQuantity();
+        $currentQuantity = max(1, (int) ($subscription->quantity ?? 1));
+
+        if ($currentQuantity === $desiredQuantity) {
+            return;
+        }
+
+        $subscription->forceFill([
+            'quantity' => $desiredQuantity,
+        ])->save();
+
+        if (! $this->shouldSyncSeatQuantityWithStripe()) {
+            return;
+        }
+
+        try {
+            $subscription->noProrate()->updateQuantity($desiredQuantity);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    /**
+     * Determine if seat quantity should sync to Stripe immediately.
+     */
+    private function shouldSyncSeatQuantityWithStripe(): bool
+    {
+        return (bool) config('services.stripe.seat_quantity.sync_with_stripe', false)
+            && $this->hasStripeId();
     }
 }

@@ -40,6 +40,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'trial_days' => env('STRIPE_TRIAL_DAYS', 14),
+        'seat_quantity' => [
+            'sync_with_stripe' => env('STRIPE_SYNC_SEAT_QUANTITY', false),
+        ],
         'plans' => [
             'starter_monthly' => [
                 'price_id' => env('STRIPE_PRICE_STARTER_MONTHLY'),
