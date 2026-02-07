@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Billing\StripeWebhookController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\Workspace\CurrentWorkspaceController;
 use App\Http\Controllers\Workspace\WorkspaceController;
 use App\Http\Controllers\Workspace\WorkspaceInvitationController;
@@ -18,7 +19,15 @@ Route::get('/', function () {
 
 Route::get('dashboard', function () {
     return Inertia::render('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'onboarded'])->name('dashboard');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('onboarding', [OnboardingController::class, 'show'])
+        ->name('onboarding.show');
+
+    Route::post('onboarding', [OnboardingController::class, 'store'])
+        ->name('onboarding.store');
+});
 
 Route::middleware(['auth'])->group(function () {
     Route::put('workspaces/current', [CurrentWorkspaceController::class, 'update'])
