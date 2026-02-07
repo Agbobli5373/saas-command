@@ -38,6 +38,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('workspaces/invitations/{token}/accept', [WorkspaceInvitationController::class, 'accept'])
         ->name('workspaces.invitations.accept');
+
+    Route::patch('workspaces/members/{member}', [WorkspaceController::class, 'updateMemberRole'])
+        ->name('workspaces.members.update');
+
+    Route::delete('workspaces/members/{member}', [WorkspaceController::class, 'destroyMember'])
+        ->name('workspaces.members.destroy');
+
+    Route::post('workspaces/ownership/transfer', [WorkspaceController::class, 'transferOwnership'])
+        ->name('workspaces.ownership.transfer');
 });
 
 Route::get('workspace', [WorkspaceController::class, 'show'])

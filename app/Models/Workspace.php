@@ -114,6 +114,52 @@ class Workspace extends Model
     }
 
     /**
+     * Update a member's role in the workspace.
+     */
+    public function updateMemberRole(User $user, WorkspaceRole $role): void
+    {
+        if ($user->id === $this->owner_id) {
+            return;
+        }
+
+        $this->members()->updateExistingPivot($user->id, [
+            'role' => $role->value,
+        ]);
+    }
+
+    /**
+     * Transfer workspace ownership to another member.
+     */
+    public function transferOwnershipTo(User $user): bool
+    {
+        if ($user->id === $this->owner_id) {
+            return false;
+        }
+
+        $memberExists = $this->members()
+            ->where('users.id', $user->id)
+            ->exists();
+
+        if (! $memberExists) {
+            return false;
+        }
+
+        $this->members()->updateExistingPivot($this->owner_id, [
+            'role' => WorkspaceRole::Admin->value,
+        ]);
+
+        $this->members()->updateExistingPivot($user->id, [
+            'role' => WorkspaceRole::Owner->value,
+        ]);
+
+        $this->forceFill([
+            'owner_id' => $user->id,
+        ])->save();
+
+        return true;
+    }
+
+    /**
      * Get the name that should be synced to Stripe.
      */
     public function stripeName(): ?string

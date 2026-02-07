@@ -48,4 +48,22 @@ class WorkspacePolicy
 
         return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
     }
+
+    /**
+     * Determine whether the user can manage workspace members.
+     */
+    public function manageMembers(User $user, Workspace $workspace): bool
+    {
+        $role = $user->workspaceRole($workspace);
+
+        return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
+    }
+
+    /**
+     * Determine whether the user can transfer workspace ownership.
+     */
+    public function transferOwnership(User $user, Workspace $workspace): bool
+    {
+        return $workspace->owner_id === $user->id;
+    }
 }

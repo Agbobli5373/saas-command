@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers\Workspace;
 
+use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Workspace\DestroyWorkspaceMemberRequest;
+use App\Http\Requests\Workspace\TransferWorkspaceOwnershipRequest;
+use App\Http\Requests\Workspace\UpdateWorkspaceMemberRoleRequest;
+use App\Models\User;
 use App\Services\Billing\PlanService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,6 +36,7 @@ class WorkspaceController extends Controller
                 'name' => $member->name,
                 'email' => $member->email,
                 'role' => (string) ($member->pivot->role ?? 'member'),
+                'isOwner' => $member->id === $workspace->owner_id,
             ])
             ->values()
             ->all();
@@ -66,11 +73,102 @@ class WorkspaceController extends Controller
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
             'canInviteMembers' => $user->can('inviteMembers', $workspace),
+            'canManageMembers' => $user->can('manageMembers', $workspace),
+            'canTransferOwnership' => $user->can('transferOwnership', $workspace),
+            'currentUserId' => $user->id,
             'seatCount' => $seatCount,
             'seatLimit' => $plans->seatLimit($workspace),
             'remainingSeatCapacity' => $plans->remainingSeatCapacity($workspace, $pendingInvitationCount),
             'hasReachedSeatLimit' => $plans->hasReachedSeatLimit($workspace, $pendingInvitationCount),
             'billedSeatCount' => $billedSeatCount,
         ]);
+    }
+
+    /**
+     * Update the role of an existing workspace member.
+     */
+    public function updateMemberRole(
+        UpdateWorkspaceMemberRoleRequest $request,
+        User $member
+    ): RedirectResponse {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('workspace')->with('status', 'No active workspace selected.');
+        }
+
+        $this->authorize('manageMembers', $workspace);
+
+        if (! $workspace->members()->where('users.id', $member->id)->exists()) {
+            abort(404);
+        }
+
+        if ($member->id === $workspace->owner_id) {
+            return back()->with('status', 'Transfer ownership instead of changing the owner role.');
+        }
+
+        $role = WorkspaceRole::from((string) $request->validated('role'));
+
+        $workspace->updateMemberRole($member, $role);
+
+        return back()->with('status', sprintf('%s role updated to %s.', $member->name, $role->value));
+    }
+
+    /**
+     * Remove a member from the active workspace.
+     */
+    public function destroyMember(
+        DestroyWorkspaceMemberRequest $request,
+        User $member
+    ): RedirectResponse {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('workspace')->with('status', 'No active workspace selected.');
+        }
+
+        $this->authorize('manageMembers', $workspace);
+
+        if (! $workspace->members()->where('users.id', $member->id)->exists()) {
+            abort(404);
+        }
+
+        if ($member->id === $workspace->owner_id) {
+            return back()->with('status', 'Transfer ownership before removing the owner.');
+        }
+
+        if ($member->id === $request->user()->id) {
+            return back()->with('status', 'You cannot remove your own membership from this screen.');
+        }
+
+        $workspace->removeMember($member);
+
+        return back()->with('status', sprintf('%s removed from workspace.', $member->name));
+    }
+
+    /**
+     * Transfer workspace ownership to another member.
+     */
+    public function transferOwnership(TransferWorkspaceOwnershipRequest $request): RedirectResponse
+    {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('workspace')->with('status', 'No active workspace selected.');
+        }
+
+        $this->authorize('transferOwnership', $workspace);
+
+        $newOwner = User::query()->findOrFail((int) $request->validated('owner_id'));
+
+        if (! $workspace->members()->where('users.id', $newOwner->id)->exists()) {
+            return back()->with('status', 'Select a current member to transfer ownership.');
+        }
+
+        if (! $workspace->transferOwnershipTo($newOwner)) {
+            return back()->with('status', 'Ownership transfer could not be completed.');
+        }
+
+        return back()->with('status', sprintf('Workspace ownership transferred to %s.', $newOwner->name));
     }
 }
