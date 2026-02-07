@@ -8,23 +8,42 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Mockery\MockInterface;
 
 beforeEach(function () {
+    config()->set('services.stripe.default_plan', 'free');
+
     config()->set('services.stripe.plans', [
+        'free' => [
+            'billing_mode' => 'free',
+            'title' => 'Free',
+            'price_label' => '$0',
+            'interval_label' => '/forever',
+            'description' => 'Free plan',
+            'features' => ['Feature Free'],
+            'feature_flags' => ['team_invitations'],
+            'limits' => ['seats' => 3],
+            'highlighted' => false,
+        ],
         'starter_monthly' => [
             'price_id' => 'price_monthly_123',
+            'billing_mode' => 'stripe',
             'title' => 'Starter Monthly',
             'price_label' => '$29',
             'interval_label' => '/month',
             'description' => 'Monthly plan',
             'features' => ['Feature A'],
+            'feature_flags' => ['team_invitations'],
+            'limits' => ['seats' => null],
             'highlighted' => false,
         ],
         'starter_yearly' => [
             'price_id' => 'price_yearly_123',
+            'billing_mode' => 'stripe',
             'title' => 'Starter Yearly',
             'price_label' => '$290',
             'interval_label' => '/year',
             'description' => 'Yearly plan',
             'features' => ['Feature B'],
+            'feature_flags' => ['team_invitations'],
+            'limits' => ['seats' => null],
             'highlighted' => true,
         ],
     ]);
@@ -69,10 +88,14 @@ test('billing settings page shares plan metadata and invoice history', function 
 
     $response->assertInertia(fn (Assert $page) => $page
         ->component('settings/billing')
-        ->has('plans', 2)
-        ->where('plans.0.key', 'starter_monthly')
-        ->where('plans.0.title', 'Starter Monthly')
+        ->has('plans', 3)
+        ->where('plans.0.key', 'free')
+        ->where('plans.1.key', 'starter_monthly')
+        ->where('currentPlanKey', 'free')
+        ->where('currentPlanBillingMode', 'free')
         ->where('seatCount', 1)
+        ->where('seatLimit', 3)
+        ->where('remainingSeatCapacity', 2)
         ->where('billedSeatCount', 1)
         ->has('invoices', 1)
         ->where('invoices.0.id', 'in_test_123')
@@ -106,6 +129,7 @@ test('billing settings page shares seat metrics from workspace subscription', fu
     $response->assertInertia(fn (Assert $page) => $page
         ->where('seatCount', 2)
         ->where('billedSeatCount', 5)
+        ->where('seatLimit', null)
     );
 });
 
@@ -161,7 +185,7 @@ test('guests are redirected from billing settings page', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('checkout redirects to stripe checkout url', function () {
+test('checkout redirects to stripe checkout url for paid plans', function () {
     $user = User::factory()->create();
 
     $this->mock(BillingService::class, function (MockInterface $mock): void {
@@ -177,6 +201,24 @@ test('checkout redirects to stripe checkout url', function () {
         ]);
 
     $response->assertRedirect('https://checkout.stripe.test/session');
+});
+
+test('checkout returns validation error for free plan', function () {
+    $user = User::factory()->create();
+
+    $this->mock(BillingService::class, function (MockInterface $mock): void {
+        $mock->shouldNotReceive('checkout');
+    });
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('billing.edit'))
+        ->post(route('billing.checkout'), [
+            'plan' => 'free',
+        ]);
+
+    $response->assertRedirect(route('billing.edit'));
+    $response->assertSessionHasErrors('plan');
 });
 
 test('checkout returns inertia location response for inertia requests', function () {
@@ -202,14 +244,20 @@ test('checkout returns inertia location response for inertia requests', function
     $response->assertHeader('X-Inertia-Location', 'https://checkout.stripe.test/session');
 });
 
-test('unsubscribed users are redirected from workspace to billing settings', function () {
-    $user = User::factory()->create();
+test('free-tier onboarded users can access workspace', function () {
+    $user = User::factory()->create([
+        'onboarding_completed_at' => now(),
+    ]);
 
     $response = $this
         ->actingAs($user)
         ->get(route('workspace'));
 
-    $response->assertRedirect(route('billing.edit'));
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('workspace')
+        ->where('seatCount', 1)
+        ->where('seatLimit', 3)
+    );
 });
 
 test('subscribed users can access workspace', function () {

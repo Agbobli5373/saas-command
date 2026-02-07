@@ -6,6 +6,36 @@ use App\Notifications\Workspace\WorkspaceInvitationNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
+beforeEach(function () {
+    config()->set('services.stripe.default_plan', 'free');
+
+    config()->set('services.stripe.plans', [
+        'free' => [
+            'billing_mode' => 'free',
+            'title' => 'Free',
+            'price_label' => '$0',
+            'interval_label' => '/forever',
+            'description' => 'Free plan',
+            'features' => ['Feature Free'],
+            'feature_flags' => ['team_invitations'],
+            'limits' => ['seats' => 3],
+            'highlighted' => false,
+        ],
+        'starter_monthly' => [
+            'price_id' => 'price_monthly_123',
+            'billing_mode' => 'stripe',
+            'title' => 'Starter Monthly',
+            'price_label' => '$29',
+            'interval_label' => '/month',
+            'description' => 'Monthly plan',
+            'features' => ['Feature A'],
+            'feature_flags' => ['team_invitations'],
+            'limits' => ['seats' => null],
+            'highlighted' => true,
+        ],
+    ]);
+});
+
 test('workspace owners can invite teammates by email', function () {
     Notification::fake();
 
@@ -37,6 +67,47 @@ test('workspace owners can invite teammates by email', function () {
                 && str_contains($notification->acceptUrl, '/workspaces/invitations/');
         },
     );
+});
+
+test('workspace invitation creation is blocked when seat limit is reached', function () {
+    config()->set('services.stripe.plans.free.limits.seats', 2);
+
+    $owner = User::factory()->create();
+    $workspace = $owner->activeWorkspace();
+
+    $existingMember = User::factory()->create();
+    $workspace->addMember($existingMember, WorkspaceRole::Member);
+
+    $response = $this
+        ->actingAs($owner)
+        ->from(route('workspace'))
+        ->post(route('workspaces.invitations.store'), [
+            'email' => 'blocked@example.com',
+            'role' => WorkspaceRole::Member->value,
+        ]);
+
+    $response->assertRedirect(route('workspace'));
+    $response->assertSessionHas('status', fn (string $status): bool => str_contains($status, 'up to 2 seats'));
+
+    $this->assertDatabaseMissing('workspace_invitations', [
+        'workspace_id' => $workspace->id,
+        'email' => 'blocked@example.com',
+    ]);
+});
+
+test('workspace invitation creation requires plan feature flag', function () {
+    config()->set('services.stripe.plans.free.feature_flags', []);
+
+    $owner = User::factory()->create();
+
+    $response = $this
+        ->actingAs($owner)
+        ->post(route('workspaces.invitations.store'), [
+            'email' => 'blocked@example.com',
+            'role' => WorkspaceRole::Member->value,
+        ]);
+
+    $response->assertForbidden();
 });
 
 test('workspace members cannot invite teammates', function () {
