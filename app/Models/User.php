@@ -27,6 +27,7 @@ class User extends Authenticatable
         'email',
         'password',
         'current_workspace_id',
+        'onboarding_completed_at',
     ];
 
     /**
@@ -52,6 +53,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 
@@ -169,6 +171,28 @@ class User extends Authenticatable
         $role = $this->workspaceRole($workspace);
 
         return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
+    }
+
+    /**
+     * Determine if onboarding has been completed.
+     */
+    public function hasCompletedOnboarding(): bool
+    {
+        return $this->onboarding_completed_at !== null;
+    }
+
+    /**
+     * Mark onboarding as completed.
+     */
+    public function markOnboardingCompleted(): void
+    {
+        if ($this->onboarding_completed_at !== null) {
+            return;
+        }
+
+        $this->forceFill([
+            'onboarding_completed_at' => now(),
+        ])->save();
     }
 
     /**
