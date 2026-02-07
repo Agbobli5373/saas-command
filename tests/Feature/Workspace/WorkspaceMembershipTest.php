@@ -78,7 +78,9 @@ test('active workspace ignores invalid current workspace assignment', function (
 });
 
 test('dashboard shares active workspace context for authenticated users', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'onboarding_completed_at' => now(),
+    ]);
     $workspace = Workspace::factory()->create();
 
     $workspace->addMember($user, WorkspaceRole::Admin);
