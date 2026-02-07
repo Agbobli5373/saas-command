@@ -1,11 +1,11 @@
 <?php
 
+use App\Http\Controllers\Billing\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Laravel\Cashier\Http\Controllers\WebhookController;
 use Laravel\Fortify\Features;
 
-Route::post('stripe/webhook', [WebhookController::class, 'handleWebhook'])->name('cashier.webhook');
+Route::post('stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->name('cashier.webhook');
 
 Route::get('/', function () {
     return Inertia::render('welcome', [
