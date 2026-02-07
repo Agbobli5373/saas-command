@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\BillingCheckoutRequest;
 use App\Http\Requests\Settings\BillingSwapRequest;
 use App\Models\StripeWebhookEvent;
-use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Billing\BillingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +23,8 @@ class BillingController extends Controller
     public function edit(Request $request, BillingService $billing): Response
     {
         $user = $request->user();
-        $subscription = $user?->subscription('default');
+        $workspace = $user?->activeWorkspace();
+        $subscription = $workspace?->subscription('default');
         $plans = $this->plans();
 
         return Inertia::render('settings/billing', [
@@ -32,10 +33,10 @@ class BillingController extends Controller
             'stripeConfigWarnings' => $this->stripeConfigWarnings(),
             'webhookOutcome' => $this->webhookOutcome(),
             'currentPriceId' => $subscription?->stripe_price,
-            'isSubscribed' => $user?->subscribed('default') ?? false,
+            'isSubscribed' => $workspace?->subscribed('default') ?? false,
             'onGracePeriod' => $subscription?->onGracePeriod() ?? false,
             'endsAt' => $subscription?->ends_at?->toIso8601String(),
-            'invoices' => $user === null ? [] : $this->safeInvoices($user, $billing),
+            'invoices' => $workspace === null ? [] : $this->safeInvoices($workspace, $billing),
         ]);
     }
 
@@ -44,6 +45,12 @@ class BillingController extends Controller
      */
     public function checkout(BillingCheckoutRequest $request, BillingService $billing): SymfonyResponse
     {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('billing.edit')->with('status', 'Create or join a workspace before subscribing.');
+        }
+
         $planKey = $request->validated('plan');
         $priceId = $this->plans()[$planKey]['priceId'] ?? null;
 
@@ -51,13 +58,13 @@ class BillingController extends Controller
             return to_route('billing.edit')->with('status', 'Invalid plan selected.');
         }
 
-        if ($request->user()->subscribed('default')) {
+        if ($workspace->subscribed('default')) {
             return to_route('billing.edit')->with('status', 'You already have an active subscription.');
         }
 
         try {
             $checkoutUrl = $billing->checkout(
-                $request->user(),
+                $workspace,
                 $priceId,
                 route('billing.edit'),
                 route('billing.edit')
@@ -74,8 +81,14 @@ class BillingController extends Controller
      */
     public function portal(Request $request, BillingService $billing): SymfonyResponse
     {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('billing.edit')->with('status', 'Create or join a workspace before managing billing.');
+        }
+
         try {
-            $portalUrl = $billing->billingPortal($request->user(), route('billing.edit'));
+            $portalUrl = $billing->billingPortal($workspace, route('billing.edit'));
 
             return Inertia::location($portalUrl);
         } catch (Throwable) {
@@ -88,6 +101,12 @@ class BillingController extends Controller
      */
     public function swap(BillingSwapRequest $request, BillingService $billing): RedirectResponse
     {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('billing.edit')->with('status', 'Create or join a workspace before changing plans.');
+        }
+
         $planKey = $request->validated('plan');
         $priceId = $this->plans()[$planKey]['priceId'] ?? null;
 
@@ -96,7 +115,7 @@ class BillingController extends Controller
         }
 
         try {
-            $billing->swap($request->user(), $priceId);
+            $billing->swap($workspace, $priceId);
 
             return to_route('billing.edit')->with('status', 'Your subscription has been updated.');
         } catch (Throwable) {
@@ -109,8 +128,14 @@ class BillingController extends Controller
      */
     public function cancel(Request $request, BillingService $billing): RedirectResponse
     {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('billing.edit')->with('status', 'Create or join a workspace before cancelling billing.');
+        }
+
         try {
-            $billing->cancel($request->user());
+            $billing->cancel($workspace);
 
             return to_route('billing.edit')->with('status', 'Your subscription will end at the current period.');
         } catch (Throwable) {
@@ -123,8 +148,14 @@ class BillingController extends Controller
      */
     public function resume(Request $request, BillingService $billing): RedirectResponse
     {
+        $workspace = $request->user()->activeWorkspace();
+
+        if ($workspace === null) {
+            return to_route('billing.edit')->with('status', 'Create or join a workspace before resuming billing.');
+        }
+
         try {
-            $billing->resume($request->user());
+            $billing->resume($workspace);
 
             return to_route('billing.edit')->with('status', 'Your subscription has been resumed.');
         } catch (Throwable) {
@@ -201,10 +232,10 @@ class BillingController extends Controller
      *     invoicePdfUrl: string|null
      * }>
      */
-    private function safeInvoices(User $user, BillingService $billing): array
+    private function safeInvoices(Workspace $workspace, BillingService $billing): array
     {
         try {
-            return $billing->invoices($user, 12);
+            return $billing->invoices($workspace, 12);
         } catch (Throwable) {
             return [];
         }

@@ -3,6 +3,7 @@
 namespace App\Jobs\Billing;
 
 use App\Models\StripeWebhookEvent;
+use App\Models\Workspace;
 use App\Notifications\Billing\PaymentFailedNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -93,6 +94,16 @@ class ProcessStripeWebhookEvent implements ShouldBeUnique, ShouldQueue
         }
 
         $billable = Cashier::findBillable($customerId);
+
+        if ($billable instanceof Workspace) {
+            $owner = $billable->owner()->first();
+
+            if ($owner !== null) {
+                $owner->notify(new PaymentFailedNotification($event->stripe_event_id));
+            }
+
+            return;
+        }
 
         if (! is_object($billable) || ! method_exists($billable, 'notify')) {
             return;

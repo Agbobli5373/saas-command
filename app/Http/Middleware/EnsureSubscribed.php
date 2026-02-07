@@ -16,8 +16,9 @@ class EnsureSubscribed
     public function handle(Request $request, Closure $next, string $subscription = 'default'): Response
     {
         $user = $request->user();
+        $workspace = $user?->activeWorkspace();
 
-        if ($user === null || (! $user->subscribed($subscription) && ! $user->onTrial($subscription))) {
+        if ($workspace === null || (! $workspace->subscribed($subscription) && ! $workspace->onTrial($subscription))) {
             return to_route('billing.edit');
         }
 
