@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Workspace;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\CashierBillingService;
 use Carbon\CarbonImmutable;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Cashier\Cashier;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureCashier();
         $this->configureStripeBillingWarnings();
     }
 
@@ -88,5 +91,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         config()->set('services.stripe.warnings', $warnings);
+    }
+
+    protected function configureCashier(): void
+    {
+        Cashier::useCustomerModel(Workspace::class);
     }
 }

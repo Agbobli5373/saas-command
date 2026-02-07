@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Laravel\Cashier\Billable;
 
 class Workspace extends Model
 {
     /** @use HasFactory<\Database\Factories\WorkspaceFactory> */
-    use HasFactory;
+    use Billable, HasFactory;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +23,10 @@ class Workspace extends Model
         'name',
         'owner_id',
         'is_personal',
+        'stripe_id',
+        'pm_type',
+        'pm_last_four',
+        'trial_ends_at',
     ];
 
     /**
@@ -33,6 +38,7 @@ class Workspace extends Model
     {
         return [
             'is_personal' => 'boolean',
+            'trial_ends_at' => 'datetime',
         ];
     }
 
@@ -62,5 +68,21 @@ class Workspace extends Model
         $this->members()->syncWithoutDetaching([
             $user->id => ['role' => $role->value],
         ]);
+    }
+
+    /**
+     * Get the name that should be synced to Stripe.
+     */
+    public function stripeName(): ?string
+    {
+        return $this->name;
+    }
+
+    /**
+     * Get the email address that should be synced to Stripe.
+     */
+    public function stripeEmail(): ?string
+    {
+        return $this->owner()->value('email');
     }
 }

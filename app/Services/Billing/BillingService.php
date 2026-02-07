@@ -2,13 +2,13 @@
 
 namespace App\Services\Billing;
 
-use App\Models\User;
+use App\Models\Workspace;
 
 interface BillingService
 {
-    public function checkout(User $user, string $priceId, string $successUrl, string $cancelUrl): string;
+    public function checkout(Workspace $workspace, string $priceId, string $successUrl, string $cancelUrl): string;
 
-    public function billingPortal(User $user, string $returnUrl): string;
+    public function billingPortal(Workspace $workspace, string $returnUrl): string;
 
     /**
      * @return array<int, array{
@@ -23,11 +23,11 @@ interface BillingService
      *     invoicePdfUrl: string|null
      * }>
      */
-    public function invoices(User $user, int $limit = 10): array;
+    public function invoices(Workspace $workspace, int $limit = 10): array;
 
-    public function swap(User $user, string $priceId): void;
+    public function swap(Workspace $workspace, string $priceId): void;
 
-    public function cancel(User $user): void;
+    public function cancel(Workspace $workspace): void;
 
-    public function resume(User $user): void;
+    public function resume(Workspace $workspace): void;
 }

@@ -10,13 +10,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Cashier\Billable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use Billable, HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -90,6 +89,30 @@ class User extends Authenticatable
     public function currentWorkspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class, 'current_workspace_id');
+    }
+
+    /**
+     * Resolve the user's active workspace.
+     */
+    public function activeWorkspace(): ?Workspace
+    {
+        $workspace = $this->currentWorkspace()->first();
+
+        if ($workspace !== null) {
+            return $workspace;
+        }
+
+        $workspace = $this->workspaces()
+            ->orderBy('workspaces.id')
+            ->first();
+
+        if ($workspace !== null) {
+            $this->forceFill([
+                'current_workspace_id' => $workspace->id,
+            ])->save();
+        }
+
+        return $workspace;
     }
 
     /**

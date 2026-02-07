@@ -2,17 +2,17 @@
 
 namespace App\Services\Billing;
 
-use App\Models\User;
+use App\Models\Workspace;
 use Laravel\Cashier\Invoice;
 use RuntimeException;
 
 class CashierBillingService implements BillingService
 {
-    public function checkout(User $user, string $priceId, string $successUrl, string $cancelUrl): string
+    public function checkout(Workspace $workspace, string $priceId, string $successUrl, string $cancelUrl): string
     {
         $trialDays = (int) config('services.stripe.trial_days', 0);
 
-        $subscriptionBuilder = $user->newSubscription('default', $priceId);
+        $subscriptionBuilder = $workspace->newSubscription('default', $priceId);
 
         if ($trialDays > 0) {
             $subscriptionBuilder = $subscriptionBuilder->trialDays($trialDays);
@@ -30,14 +30,14 @@ class CashierBillingService implements BillingService
         return $checkout->url;
     }
 
-    public function billingPortal(User $user, string $returnUrl): string
+    public function billingPortal(Workspace $workspace, string $returnUrl): string
     {
-        return $user->billingPortalUrl($returnUrl);
+        return $workspace->billingPortalUrl($returnUrl);
     }
 
-    public function invoices(User $user, int $limit = 10): array
+    public function invoices(Workspace $workspace, int $limit = 10): array
     {
-        return $user
+        return $workspace
             ->invoicesIncludingPending(['limit' => $limit])
             ->map(function (Invoice $invoice): array {
                 $stripeInvoice = $invoice->asStripeInvoice();
@@ -58,9 +58,9 @@ class CashierBillingService implements BillingService
             ->all();
     }
 
-    public function swap(User $user, string $priceId): void
+    public function swap(Workspace $workspace, string $priceId): void
     {
-        $subscription = $user->subscription('default');
+        $subscription = $workspace->subscription('default');
 
         if ($subscription === null) {
             throw new RuntimeException('You do not have an active subscription to change.');
@@ -69,9 +69,9 @@ class CashierBillingService implements BillingService
         $subscription->swap($priceId);
     }
 
-    public function cancel(User $user): void
+    public function cancel(Workspace $workspace): void
     {
-        $subscription = $user->subscription('default');
+        $subscription = $workspace->subscription('default');
 
         if ($subscription === null) {
             throw new RuntimeException('You do not have an active subscription to cancel.');
@@ -80,9 +80,9 @@ class CashierBillingService implements BillingService
         $subscription->cancel();
     }
 
-    public function resume(User $user): void
+    public function resume(Workspace $workspace): void
     {
-        $subscription = $user->subscription('default');
+        $subscription = $workspace->subscription('default');
 
         if ($subscription === null) {
             throw new RuntimeException('You do not have a cancelled subscription to resume.');
