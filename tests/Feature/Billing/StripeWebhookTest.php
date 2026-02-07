@@ -73,6 +73,13 @@ test('invoice payment failed event is flagged as action required', function () {
         'status' => 'action_required',
     ]);
 
+    $this->assertDatabaseHas('billing_audit_events', [
+        'workspace_id' => $workspace->id,
+        'event_type' => 'stripe_invoice_payment_failed',
+        'source' => 'stripe_webhook',
+        'severity' => 'warning',
+    ]);
+
     Notification::assertSentTo($user, PaymentFailedNotification::class);
 });
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\WorkspaceRole;
+use App\Models\BillingAuditEvent;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Services\Billing\BillingService;
@@ -100,6 +101,37 @@ test('billing settings page shares plan metadata and invoice history', function 
         ->has('invoices', 1)
         ->where('invoices.0.id', 'in_test_123')
         ->where('invoices.0.invoicePdfUrl', 'https://example.test/invoice.pdf')
+        ->has('auditTimeline', 0)
+    );
+});
+
+test('billing settings page shares billing audit timeline events', function () {
+    $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
+
+    BillingAuditEvent::factory()->create([
+        'workspace_id' => $workspace->id,
+        'actor_id' => $user->id,
+        'event_type' => 'subscription_swapped',
+        'source' => 'billing_action',
+        'severity' => 'info',
+        'title' => 'Subscription plan changed',
+        'description' => 'Subscription was changed to Starter Yearly.',
+        'context' => [
+            'plan_key' => 'starter_yearly',
+        ],
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('billing.edit'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->has('auditTimeline', 1)
+        ->where('auditTimeline.0.eventType', 'subscription_swapped')
+        ->where('auditTimeline.0.source', 'billing_action')
+        ->where('auditTimeline.0.title', 'Subscription plan changed')
+        ->where('auditTimeline.0.actor.name', $user->name)
     );
 });
 
@@ -187,6 +219,7 @@ test('guests are redirected from billing settings page', function () {
 
 test('checkout redirects to stripe checkout url for paid plans', function () {
     $user = User::factory()->create();
+    $workspace = $user->activeWorkspace();
 
     $this->mock(BillingService::class, function (MockInterface $mock): void {
         $mock->shouldReceive('checkout')
@@ -201,6 +234,14 @@ test('checkout redirects to stripe checkout url for paid plans', function () {
         ]);
 
     $response->assertRedirect('https://checkout.stripe.test/session');
+
+    $this->assertDatabaseHas('billing_audit_events', [
+        'workspace_id' => $workspace->id,
+        'actor_id' => $user->id,
+        'event_type' => 'checkout_started',
+        'source' => 'billing_action',
+        'severity' => 'info',
+    ]);
 });
 
 test('checkout returns validation error for free plan', function () {
