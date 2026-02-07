@@ -53,6 +53,24 @@ type BillingWebhookOutcome = {
     occurredAt: string;
 };
 
+type BillingAuditActor = {
+    id: number;
+    name: string;
+    email: string;
+};
+
+type BillingAuditEvent = {
+    id: number;
+    eventType: string;
+    source: string;
+    severity: string;
+    title: string;
+    description: string | null;
+    context: Record<string, unknown>;
+    occurredAt: string | null;
+    actor: BillingAuditActor | null;
+};
+
 type BillingProps = {
     status?: string;
     plans: BillingPlan[];
@@ -70,6 +88,7 @@ type BillingProps = {
     remainingSeatCapacity: number | null;
     billedSeatCount: number;
     invoices: BillingInvoice[];
+    auditTimeline: BillingAuditEvent[];
 };
 
 type InvoiceFilter = 'all' | 'paid' | 'open' | 'failed';
@@ -108,6 +127,7 @@ export default function Billing({
     remainingSeatCapacity,
     billedSeatCount,
     invoices,
+    auditTimeline,
 }: BillingProps) {
     const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
 
@@ -263,6 +283,52 @@ export default function Billing({
                                 )}
                             </Form>
                         </CardFooter>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Billing audit timeline</CardTitle>
+                            <CardDescription>
+                                Recent billing actions and Stripe events for this workspace.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {auditTimeline.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No billing audit events yet.
+                                </p>
+                            ) : (
+                                auditTimeline.map((event) => (
+                                    <div
+                                        key={event.id}
+                                        className="space-y-2 rounded-lg border border-border/70 px-4 py-3"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="text-sm font-medium">{event.title}</p>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline">{event.source}</Badge>
+                                                <Badge
+                                                    variant={event.severity === 'error' ? 'destructive' : 'secondary'}
+                                                >
+                                                    {event.severity}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        {event.description ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                {event.description}
+                                            </p>
+                                        ) : null}
+                                        <p className="text-xs text-muted-foreground">
+                                            {event.occurredAt
+                                                ? new Date(event.occurredAt).toLocaleString()
+                                                : 'Unknown time'}
+                                            {event.actor ? ` . ${event.actor.name}` : ''}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
                     </Card>
 
                     <Card>
