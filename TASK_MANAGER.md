@@ -10,7 +10,7 @@ This file is the source of truth for project execution order and status.
 
 ## Current Focus
 
-- `[ ] 2.3` Team invite and acceptance flow
+- `[ ] 2.4` Role-based access guards and policy checks
 
 ## Milestones
 
@@ -24,7 +24,7 @@ This file is the source of truth for project execution order and status.
 
 - `[x] 2.1` Workspaces + membership model (owner/admin/member)
 - `[x] 2.2` Move subscription billable from user to workspace
-- `[ ] 2.3` Team invite and acceptance flow
+- `[x] 2.3` Team invite and acceptance flow
 - `[ ] 2.4` Role-based access guards and policy checks
 - `[ ] 2.5` Seat-aware billing hooks (prepare for per-seat pricing)
 
