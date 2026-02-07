@@ -10,6 +10,7 @@ use App\Notifications\Workspace\WorkspaceMemberJoinedNotification;
 use App\Services\Billing\PlanService;
 use App\Services\Billing\WorkspaceEntitlementService;
 use App\Services\Usage\UsageMeteringService;
+use App\Services\Webhooks\WorkspaceWebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -24,7 +25,8 @@ class WorkspaceInvitationController extends Controller
     public function store(
         StoreWorkspaceInvitationRequest $request,
         WorkspaceEntitlementService $entitlements,
-        UsageMeteringService $usage
+        UsageMeteringService $usage,
+        WorkspaceWebhookService $webhooks
     ): RedirectResponse {
         $user = $request->user();
         $workspace = $user->activeWorkspace();
@@ -91,14 +93,30 @@ class WorkspaceInvitationController extends Controller
             )
         );
 
+        try {
+            $webhooks->dispatch($workspace, 'workspace.invitation.sent', [
+                'invitation_id' => $invitation->id,
+                'workspace_id' => $workspace->id,
+                'email' => $invitation->email,
+                'role' => $invitation->role,
+                'invited_by_user_id' => $user->id,
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
         return back()->with('status', sprintf('Invitation sent to %s.', $email));
     }
 
     /**
      * Accept a workspace invitation for the authenticated user.
      */
-    public function accept(Request $request, string $token, PlanService $plans): RedirectResponse
-    {
+    public function accept(
+        Request $request,
+        string $token,
+        PlanService $plans,
+        WorkspaceWebhookService $webhooks
+    ): RedirectResponse {
         $invitation = WorkspaceInvitation::query()
             ->with('workspace')
             ->where('token', $token)
@@ -140,6 +158,17 @@ class WorkspaceInvitationController extends Controller
         ])->save();
 
         $request->user()->switchWorkspace($workspace);
+
+        try {
+            $webhooks->dispatch($workspace, 'workspace.member.joined', [
+                'workspace_id' => $workspace->id,
+                'member_user_id' => $request->user()->id,
+                'invitation_id' => $invitation->id,
+                'role' => $invitation->role,
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         return to_route('workspace')->with('status', sprintf('You joined %s.', $workspace->name));
     }

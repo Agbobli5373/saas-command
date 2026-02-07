@@ -5,6 +5,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\Workspace\CurrentWorkspaceController;
 use App\Http\Controllers\Workspace\WorkspaceController;
 use App\Http\Controllers\Workspace\WorkspaceInvitationController;
+use App\Http\Controllers\Workspace\WorkspaceWebhookEndpointController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -35,6 +36,12 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('workspaces/invitations', [WorkspaceInvitationController::class, 'store'])
         ->name('workspaces.invitations.store');
+
+    Route::post('workspaces/webhooks', [WorkspaceWebhookEndpointController::class, 'store'])
+        ->name('workspaces.webhooks.store');
+
+    Route::delete('workspaces/webhooks/{endpoint}', [WorkspaceWebhookEndpointController::class, 'destroy'])
+        ->name('workspaces.webhooks.destroy');
 
     Route::get('workspaces/invitations/{token}/accept', [WorkspaceInvitationController::class, 'accept'])
         ->name('workspaces.invitations.accept');

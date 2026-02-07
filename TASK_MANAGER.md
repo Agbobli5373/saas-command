@@ -42,7 +42,7 @@ This file is the source of truth for project execution order and status.
 - `[x] 4.2` Usage metering engine (track events, quotas, and monthly resets)
 - `[x] 4.3` Hard enforcement of plan entitlements (API + UI guards from one policy layer)
 - `[ ] 4.4` API access layer (workspace API tokens, scoped permissions, rate limits)
-- `[ ] 4.5` Outbound integration webhooks (tenant-configured endpoints, signatures, retries)
+- `[x] 4.5` Outbound integration webhooks (tenant-configured endpoints, signatures, retries)
 - `[ ] 4.6` Customer-facing changelog and in-app release notes feed
 
 ## Rules We Follow

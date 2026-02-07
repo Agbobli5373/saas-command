@@ -93,6 +93,7 @@ return [
                     'team_invitations',
                     'workspace_management',
                     'priority_support',
+                    'outbound_webhooks',
                 ],
                 'limits' => [
                     'seats' => null,
@@ -117,6 +118,7 @@ return [
                     'team_invitations',
                     'workspace_management',
                     'priority_support',
+                    'outbound_webhooks',
                 ],
                 'limits' => [
                     'seats' => null,

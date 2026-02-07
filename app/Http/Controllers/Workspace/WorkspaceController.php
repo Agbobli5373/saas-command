@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Billing\PlanService;
 use App\Services\Billing\WorkspaceEntitlementService;
 use App\Services\Usage\UsageMeteringService;
+use App\Services\Webhooks\WorkspaceWebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -52,6 +53,7 @@ class WorkspaceController extends Controller
         $pendingInvitationCount = $workspace->pendingInvitationCount();
         $currentPlan = $plans->resolveWorkspacePlan($workspace);
         $inviteMembers = $entitlements->inviteMembers($user, $workspace, $pendingInvitationCount);
+        $canManageWebhooks = $user->can('manageWebhooks', $workspace);
 
         $pendingInvitations = $workspace->invitations()
             ->pending()
@@ -66,6 +68,27 @@ class WorkspaceController extends Controller
             ->values()
             ->all();
 
+        $webhookEndpoints = [];
+
+        if ($canManageWebhooks) {
+            $webhookEndpoints = $workspace->webhookEndpoints()
+                ->latest('id')
+                ->get()
+                ->map(fn ($endpoint): array => [
+                    'id' => $endpoint->id,
+                    'name' => $endpoint->name,
+                    'url' => $endpoint->url,
+                    'events' => is_array($endpoint->events) ? $endpoint->events : [],
+                    'isActive' => (bool) $endpoint->is_active,
+                    'lastDispatchedAt' => $endpoint->last_dispatched_at?->toIso8601String(),
+                    'lastErrorAt' => $endpoint->last_error_at?->toIso8601String(),
+                    'lastErrorMessage' => $endpoint->last_error_message,
+                    'failureCount' => (int) $endpoint->failure_count,
+                ])
+                ->values()
+                ->all();
+        }
+
         return Inertia::render('workspace', [
             'status' => $request->session()->get('status'),
             'workspace' => [
@@ -79,8 +102,11 @@ class WorkspaceController extends Controller
             ],
             'members' => $members,
             'pendingInvitations' => $pendingInvitations,
+            'webhookEndpoints' => $webhookEndpoints,
+            'supportedWebhookEvents' => $canManageWebhooks ? WorkspaceWebhookService::supportedEvents() : [],
             'canInviteMembers' => $inviteMembers['allowed'],
             'canManageInvitations' => $inviteMembers['hasInviteRole'],
+            'canManageWebhooks' => $canManageWebhooks,
             'inviteEntitlement' => [
                 'reasonCode' => $inviteMembers['reasonCode'],
                 'message' => $inviteMembers['message'],
@@ -106,7 +132,8 @@ class WorkspaceController extends Controller
      */
     public function updateMemberRole(
         UpdateWorkspaceMemberRoleRequest $request,
-        User $member
+        User $member,
+        WorkspaceWebhookService $webhooks
     ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
@@ -128,6 +155,16 @@ class WorkspaceController extends Controller
 
         $workspace->updateMemberRole($member, $role);
 
+        try {
+            $webhooks->dispatch($workspace, 'workspace.member.role_updated', [
+                'workspace_id' => $workspace->id,
+                'member_user_id' => $member->id,
+                'role' => $role->value,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
         return back()->with('status', sprintf('%s role updated to %s.', $member->name, $role->value));
     }
 
@@ -136,7 +173,8 @@ class WorkspaceController extends Controller
      */
     public function destroyMember(
         DestroyWorkspaceMemberRequest $request,
-        User $member
+        User $member,
+        WorkspaceWebhookService $webhooks
     ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
@@ -160,14 +198,25 @@ class WorkspaceController extends Controller
 
         $workspace->removeMember($member);
 
+        try {
+            $webhooks->dispatch($workspace, 'workspace.member.removed', [
+                'workspace_id' => $workspace->id,
+                'member_user_id' => $member->id,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
         return back()->with('status', sprintf('%s removed from workspace.', $member->name));
     }
 
     /**
      * Transfer workspace ownership to another member.
      */
-    public function transferOwnership(TransferWorkspaceOwnershipRequest $request): RedirectResponse
-    {
+    public function transferOwnership(
+        TransferWorkspaceOwnershipRequest $request,
+        WorkspaceWebhookService $webhooks
+    ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
@@ -184,6 +233,15 @@ class WorkspaceController extends Controller
 
         if (! $workspace->transferOwnershipTo($newOwner)) {
             return back()->with('status', 'Ownership transfer could not be completed.');
+        }
+
+        try {
+            $webhooks->dispatch($workspace, 'workspace.ownership.transferred', [
+                'workspace_id' => $workspace->id,
+                'new_owner_user_id' => $newOwner->id,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
         }
 
         return back()->with('status', sprintf('Workspace ownership transferred to %s.', $newOwner->name));

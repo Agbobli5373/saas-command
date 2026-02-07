@@ -95,6 +95,14 @@ class Workspace extends Model
     }
 
     /**
+     * Get outbound webhook endpoints for this workspace.
+     */
+    public function webhookEndpoints(): HasMany
+    {
+        return $this->hasMany(WorkspaceWebhookEndpoint::class);
+    }
+
+    /**
      * Get the count of pending invitations.
      */
     public function pendingInvitationCount(): int

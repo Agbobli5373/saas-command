@@ -12,6 +12,7 @@ use App\Services\Billing\BillingAuditLogger;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\PlanService;
 use App\Services\Usage\UsageMeteringService;
+use App\Services\Webhooks\WorkspaceWebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -70,7 +71,8 @@ class BillingController extends Controller
         BillingCheckoutRequest $request,
         BillingService $billing,
         PlanService $plans,
-        BillingAuditLogger $auditLogger
+        BillingAuditLogger $auditLogger,
+        WorkspaceWebhookService $webhooks
     ): SymfonyResponse {
         $workspace = $request->user()->activeWorkspace();
 
@@ -117,6 +119,12 @@ class BillingController extends Controller
                     'price_id' => $priceId,
                 ],
             );
+
+            $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.checkout.started', [
+                'workspace_id' => $workspace->id,
+                'plan_key' => $plan['key'],
+                'price_id' => $priceId,
+            ]);
 
             return Inertia::location($checkoutUrl);
         } catch (Throwable $exception) {
@@ -190,7 +198,8 @@ class BillingController extends Controller
         BillingSwapRequest $request,
         BillingService $billing,
         PlanService $plans,
-        BillingAuditLogger $auditLogger
+        BillingAuditLogger $auditLogger,
+        WorkspaceWebhookService $webhooks
     ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
@@ -229,6 +238,12 @@ class BillingController extends Controller
                 ],
             );
 
+            $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.subscription.updated', [
+                'workspace_id' => $workspace->id,
+                'plan_key' => $plan['key'],
+                'price_id' => $priceId,
+            ]);
+
             return to_route('billing.edit')->with('status', 'Your subscription has been updated.');
         } catch (Throwable $exception) {
             $this->logAuditEvent(
@@ -253,8 +268,12 @@ class BillingController extends Controller
     /**
      * Cancel the active subscription.
      */
-    public function cancel(Request $request, BillingService $billing, BillingAuditLogger $auditLogger): RedirectResponse
-    {
+    public function cancel(
+        Request $request,
+        BillingService $billing,
+        BillingAuditLogger $auditLogger,
+        WorkspaceWebhookService $webhooks
+    ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
@@ -274,6 +293,10 @@ class BillingController extends Controller
                 title: 'Subscription cancelled',
                 description: 'Subscription was cancelled and moved to grace period.',
             );
+
+            $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.subscription.cancelled', [
+                'workspace_id' => $workspace->id,
+            ]);
 
             return to_route('billing.edit')->with('status', 'Your subscription will end at the current period.');
         } catch (Throwable $exception) {
@@ -297,8 +320,12 @@ class BillingController extends Controller
     /**
      * Resume a cancelled subscription during the grace period.
      */
-    public function resume(Request $request, BillingService $billing, BillingAuditLogger $auditLogger): RedirectResponse
-    {
+    public function resume(
+        Request $request,
+        BillingService $billing,
+        BillingAuditLogger $auditLogger,
+        WorkspaceWebhookService $webhooks
+    ): RedirectResponse {
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
@@ -318,6 +345,10 @@ class BillingController extends Controller
                 title: 'Subscription resumed',
                 description: 'Subscription was resumed during grace period.',
             );
+
+            $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.subscription.resumed', [
+                'workspace_id' => $workspace->id,
+            ]);
 
             return to_route('billing.edit')->with('status', 'Your subscription has been resumed.');
         } catch (Throwable $exception) {
@@ -470,5 +501,21 @@ class BillingController extends Controller
             description: $description,
             context: $context,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchWorkspaceWebhook(
+        WorkspaceWebhookService $webhooks,
+        Workspace $workspace,
+        string $eventType,
+        array $payload
+    ): void {
+        try {
+            $webhooks->dispatch($workspace, $eventType, $payload);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 }

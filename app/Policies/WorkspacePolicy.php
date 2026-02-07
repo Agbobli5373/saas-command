@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Billing\PlanService;
 use App\Services\Billing\WorkspaceEntitlementService;
 
 class WorkspacePolicy
@@ -52,6 +53,20 @@ class WorkspacePolicy
         $role = $user->workspaceRole($workspace);
 
         return in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true);
+    }
+
+    /**
+     * Determine whether the user can manage outbound webhooks.
+     */
+    public function manageWebhooks(User $user, Workspace $workspace): bool
+    {
+        $role = $user->workspaceRole($workspace);
+
+        if (! in_array($role, [WorkspaceRole::Owner, WorkspaceRole::Admin], true)) {
+            return false;
+        }
+
+        return app(PlanService::class)->workspaceHasFeature($workspace, 'outbound_webhooks');
     }
 
     /**

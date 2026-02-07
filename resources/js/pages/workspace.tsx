@@ -2,6 +2,7 @@ import { Form, Head } from '@inertiajs/react';
 import { CircleAlert, MailPlus, Users } from 'lucide-react';
 import WorkspaceController from '@/actions/App/Http/Controllers/Workspace/WorkspaceController';
 import WorkspaceInvitationController from '@/actions/App/Http/Controllers/Workspace/WorkspaceInvitationController';
+import WorkspaceWebhookEndpointController from '@/actions/App/Http/Controllers/Workspace/WorkspaceWebhookEndpointController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -65,6 +66,18 @@ type UsageMetric = {
     isExceeded: boolean;
 };
 
+type WebhookEndpoint = {
+    id: number;
+    name: string;
+    url: string;
+    events: string[];
+    isActive: boolean;
+    lastDispatchedAt: string | null;
+    lastErrorAt: string | null;
+    lastErrorMessage: string | null;
+    failureCount: number;
+};
+
 type InviteEntitlement = {
     reasonCode:
         | 'ok'
@@ -84,8 +97,11 @@ type WorkspaceProps = {
     plan: WorkspacePlan;
     members: WorkspaceMember[];
     pendingInvitations: PendingInvitation[];
+    webhookEndpoints: WebhookEndpoint[];
+    supportedWebhookEvents: Record<string, string>;
     canInviteMembers: boolean;
     canManageInvitations: boolean;
+    canManageWebhooks: boolean;
     inviteEntitlement: InviteEntitlement;
     canManageMembers: boolean;
     canTransferOwnership: boolean;
@@ -105,8 +121,11 @@ export default function Workspace({
     plan,
     members,
     pendingInvitations,
+    webhookEndpoints,
+    supportedWebhookEvents,
     canInviteMembers,
     canManageInvitations,
+    canManageWebhooks,
     inviteEntitlement,
     canManageMembers,
     canTransferOwnership,
@@ -352,6 +371,105 @@ export default function Workspace({
                                     </div>
                                 )}
                             </Form>
+                        </CardContent>
+                    </Card>
+                ) : null}
+
+                {canManageWebhooks ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Outbound webhooks</CardTitle>
+                            <CardDescription>
+                                Send signed events to integration endpoints with automatic retries.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <Form {...WorkspaceWebhookEndpointController.store.form()}>
+                                {({ processing, errors }) => (
+                                    <div className="grid gap-4 rounded-lg border border-border/60 p-4 md:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="webhook-name">Endpoint name</Label>
+                                            <Input id="webhook-name" name="name" placeholder="CRM Integration" />
+                                            <InputError message={errors.name} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="webhook-url">Destination URL</Label>
+                                            <Input id="webhook-url" name="url" placeholder="https://api.example.com/webhooks" />
+                                            <InputError message={errors.url} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="webhook-secret">Signing secret</Label>
+                                            <Input id="webhook-secret" name="signing_secret" placeholder="whsec_..." />
+                                            <InputError message={errors.signing_secret} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="webhook-events">Events (select one or more)</Label>
+                                            <select
+                                                id="webhook-events"
+                                                name="events[]"
+                                                multiple
+                                                defaultValue={Object.keys(supportedWebhookEvents)}
+                                                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 min-h-32 rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
+                                            >
+                                                {Object.entries(supportedWebhookEvents).map(([eventKey, label]) => (
+                                                    <option key={eventKey} value={eventKey}>
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <InputError message={errors.events} />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <Button type="submit" disabled={processing}>
+                                                Add webhook endpoint
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </Form>
+
+                            {webhookEndpoints.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No webhook endpoints configured yet.
+                                </p>
+                            ) : (
+                                webhookEndpoints.map((endpoint) => (
+                                    <div key={endpoint.id} className="space-y-2 rounded-lg border border-border/60 p-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <p className="text-sm font-medium">{endpoint.name}</p>
+                                                <p className="text-xs text-muted-foreground">{endpoint.url}</p>
+                                            </div>
+                                            <Badge variant={endpoint.isActive ? 'default' : 'outline'}>
+                                                {endpoint.isActive ? 'Active' : 'Disabled'}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Events: {endpoint.events.join(', ')}
+                                        </p>
+                                        {endpoint.lastErrorMessage ? (
+                                            <p className="text-xs text-destructive">
+                                                Last error: {endpoint.lastErrorMessage}
+                                            </p>
+                                        ) : null}
+                                        <p className="text-xs text-muted-foreground">
+                                            Failures: {endpoint.failureCount}
+                                            {endpoint.lastDispatchedAt
+                                                ? ` . Last delivered ${new Date(endpoint.lastDispatchedAt).toLocaleString()}`
+                                                : ''}
+                                        </p>
+                                        {endpoint.isActive ? (
+                                            <Form {...WorkspaceWebhookEndpointController.destroy.form(endpoint.id)}>
+                                                {({ processing }) => (
+                                                    <Button size="sm" variant="outline" type="submit" disabled={processing}>
+                                                        Disable endpoint
+                                                    </Button>
+                                                )}
+                                            </Form>
+                                        ) : null}
+                                    </div>
+                                ))
+                            )}
                         </CardContent>
                     </Card>
                 ) : null}
