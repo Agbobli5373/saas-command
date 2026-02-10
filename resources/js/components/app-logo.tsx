@@ -1,6 +1,9 @@
 import AppLogoIcon from './app-logo-icon';
+import { useI18n } from '@/hooks/use-i18n';
 
 export default function AppLogo() {
+    const { t } = useI18n();
+
     return (
         <>
             <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
@@ -8,7 +11,7 @@ export default function AppLogo() {
             </div>
             <div className="ml-1 grid flex-1 text-left text-sm">
                 <span className="mb-0.5 truncate leading-tight font-semibold">
-                    SaaS Command
+                    {t('SaaS Command')}
                 </span>
             </div>
         </>

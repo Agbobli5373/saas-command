@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useI18n } from '@/hooks/use-i18n';
 import { logout } from '@/routes';
 
 type BillingPlan = {
@@ -40,6 +41,8 @@ export default function Onboarding({
     plans,
     stripeConfigWarnings,
 }: OnboardingProps) {
+    const { t } = useI18n();
+
     const defaultPlan = useMemo(
         () => plans.find((plan) => plan.highlighted)?.key ?? plans[0]?.key ?? '',
         [plans],
@@ -54,31 +57,30 @@ export default function Onboarding({
 
     return (
         <div className="relative min-h-screen bg-gradient-to-b from-background via-muted/30 to-background px-4 py-10">
-            <Head title="Onboarding" />
+            <Head title={t('Onboarding')} />
 
             <div className="mx-auto max-w-4xl space-y-6">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <Badge variant="secondary" className="mb-3">
-                            Step 1 of 1
+                            {t('Step 1 of 1')}
                         </Badge>
                         <h1 className="text-3xl font-semibold tracking-tight">
-                            Set up your workspace
+                            {t('Set up your workspace')}
                         </h1>
                         <p className="mt-2 text-muted-foreground">
-                            Name your workspace and choose a starting plan to
-                            launch your SaaS account.
+                            {t('Name your workspace and choose a starting plan to launch your SaaS account.')}
                         </p>
                     </div>
                     <Link href={logout()} method="post" as="button" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-                        Log out
+                        {t('Log out')}
                     </Link>
                 </div>
 
                 {status ? (
                     <Alert>
                         <CircleAlert className="h-4 w-4" />
-                        <AlertTitle>Onboarding update</AlertTitle>
+                        <AlertTitle>{t('Onboarding update')}</AlertTitle>
                         <AlertDescription>{status}</AlertDescription>
                     </Alert>
                 ) : null}
@@ -86,7 +88,7 @@ export default function Onboarding({
                 {stripeConfigWarnings.map((warning) => (
                     <Alert key={warning} variant="destructive">
                         <CircleAlert className="h-4 w-4" />
-                        <AlertTitle>Stripe configuration warning</AlertTitle>
+                        <AlertTitle>{t('Stripe configuration warning')}</AlertTitle>
                         <AlertDescription>{warning}</AlertDescription>
                     </Alert>
                 ))}
@@ -95,15 +97,15 @@ export default function Onboarding({
                     {({ processing, errors }) => (
                         <Card className="border-border/70 bg-card/90 backdrop-blur">
                             <CardHeader>
-                                <CardTitle>Workspace setup</CardTitle>
+                                <CardTitle>{t('Workspace setup')}</CardTitle>
                                 <CardDescription>
-                                    Choose a workspace identity and billing plan.
+                                    {t('Choose a workspace identity and billing plan.')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="workspace_name">
-                                        Workspace name
+                                        {t('Workspace name')}
                                     </Label>
                                     <Input
                                         id="workspace_name"
@@ -138,7 +140,7 @@ export default function Onboarding({
                                                 {plan.highlighted ? (
                                                     <Badge variant="default">
                                                         <Sparkles className="size-3" />
-                                                        Popular
+                                                        {t('Popular')}
                                                     </Badge>
                                                 ) : null}
                                             </div>
@@ -163,8 +165,8 @@ export default function Onboarding({
                                         }
                                     >
                                         {shouldStartStripeCheckout
-                                            ? 'Continue to checkout'
-                                            : 'Continue to workspace'}
+                                            ? t('Continue to checkout')
+                                            : t('Continue to workspace')}
                                     </Button>
                                 </div>
                             </CardContent>

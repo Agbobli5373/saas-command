@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { useI18n } from '@/hooks/use-i18n';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { edit } from '@/routes/billing';
@@ -43,32 +44,6 @@ type Props = {
     breadcrumbs?: BreadcrumbItem[];
 };
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-];
-
-const rightNavItems: NavItem[] = [
-    {
-        title: 'Workspace',
-        href: workspace(),
-        icon: Users,
-    },
-    {
-        title: 'Billing',
-        href: edit(),
-        icon: CreditCard,
-    },
-    {
-        title: 'Notifications',
-        href: index(),
-        icon: Bell,
-    },
-];
-
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
 
@@ -76,7 +51,35 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const getInitials = useInitials();
+    const { t } = useI18n();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
+
+    const mainNavItems: NavItem[] = [
+        {
+            title: t('Dashboard'),
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+    ];
+
+    const rightNavItems: NavItem[] = [
+        {
+            title: t('Workspace'),
+            href: workspace(),
+            icon: Users,
+        },
+        {
+            title: t('Billing'),
+            href: edit(),
+            icon: CreditCard,
+        },
+        {
+            title: t('Notifications'),
+            href: index(),
+            icon: Bell,
+        },
+    ];
+
     return (
         <>
             <div className="border-b border-sidebar-border/80">
@@ -98,7 +101,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 className="flex h-full w-64 flex-col items-stretch justify-between bg-sidebar"
                             >
                                 <SheetTitle className="sr-only">
-                                    Navigation Menu
+                                    {t('Navigation Menu')}
                                 </SheetTitle>
                                 <SheetHeader className="flex justify-start text-left">
                                     <AppLogoIcon className="h-6 w-6 fill-current text-black dark:text-white" />
