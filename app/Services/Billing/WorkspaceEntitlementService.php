@@ -47,7 +47,7 @@ class WorkspaceEntitlementService
                 allowed: false,
                 hasInviteRole: false,
                 reasonCode: 'insufficient_role',
-                message: 'Only workspace owners or admins can invite teammates.',
+                message: __('Only workspace owners or admins can invite teammates.'),
                 seatLimit: $seatLimit,
                 remainingSeatCapacity: $remainingSeatCapacity,
                 hasReachedSeatLimit: $hasReachedSeatLimit,
@@ -60,7 +60,7 @@ class WorkspaceEntitlementService
                 allowed: false,
                 hasInviteRole: true,
                 reasonCode: 'feature_unavailable',
-                message: 'Team invitations are not included in your current plan.',
+                message: __('Team invitations are not included in your current plan.'),
                 seatLimit: $seatLimit,
                 remainingSeatCapacity: $remainingSeatCapacity,
                 hasReachedSeatLimit: $hasReachedSeatLimit,
@@ -70,11 +70,16 @@ class WorkspaceEntitlementService
 
         if ($hasReachedSeatLimit) {
             $currentPlan = $this->plans->resolveWorkspacePlan($workspace);
-            $planTitle = is_array($currentPlan) ? (string) ($currentPlan['title'] ?? 'Current') : 'Current';
+            $planTitle = is_array($currentPlan)
+                ? (string) ($currentPlan['title'] ?? __('Current'))
+                : __('Current');
 
             $message = $seatLimit === null
-                ? 'Workspace seat limit reached. Upgrade to invite more teammates.'
-                : sprintf('%s plan allows up to %d seats. Upgrade to invite more teammates.', $planTitle, $seatLimit);
+                ? __('Workspace seat limit reached. Upgrade to invite more teammates.')
+                : __(':plan plan allows up to :seats seats. Upgrade to invite more teammates.', [
+                    'plan' => $planTitle,
+                    'seats' => $seatLimit,
+                ]);
 
             return $this->decision(
                 allowed: false,
@@ -90,12 +95,11 @@ class WorkspaceEntitlementService
 
         if ($usageMetric['isExceeded']) {
             $message = $usageMetric['quota'] === null
-                ? 'Monthly invitation limit reached for this workspace.'
-                : sprintf(
-                    'Monthly invitation limit reached (%d/%d). Upgrade your plan to invite more teammates.',
-                    $usageMetric['used'],
-                    $usageMetric['quota']
-                );
+                ? __('Monthly invitation limit reached for this workspace.')
+                : __('Monthly invitation limit reached (:used/:quota). Upgrade your plan to invite more teammates.', [
+                    'used' => $usageMetric['used'],
+                    'quota' => $usageMetric['quota'],
+                ]);
 
             return $this->decision(
                 allowed: false,

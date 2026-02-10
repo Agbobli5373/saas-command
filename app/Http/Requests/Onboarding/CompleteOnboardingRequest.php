@@ -35,10 +35,10 @@ class CompleteOnboardingRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'workspace_name.required' => 'Enter a workspace name to continue onboarding.',
-            'workspace_name.min' => 'Workspace name must be at least 3 characters.',
-            'plan.required' => 'Choose a plan to continue onboarding.',
-            'plan.in' => 'Choose a valid plan to continue onboarding.',
+            'workspace_name.required' => __('Enter a workspace name to continue onboarding.'),
+            'workspace_name.min' => __('Workspace name must be at least 3 characters.'),
+            'plan.required' => __('Choose a plan to continue onboarding.'),
+            'plan.in' => __('Choose a valid plan to continue onboarding.'),
         ];
     }
 

@@ -34,8 +34,8 @@ class BillingSwapRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'plan.required' => 'Select a paid plan before updating your subscription.',
-            'plan.in' => 'Select a valid paid plan before updating your subscription.',
+            'plan.required' => __('Select a paid plan before updating your subscription.'),
+            'plan.in' => __('Select a valid paid plan before updating your subscription.'),
         ];
     }
 

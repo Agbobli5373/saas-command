@@ -44,11 +44,11 @@ class PlanService
                 'key' => $planKey,
                 'billingMode' => $billingMode,
                 'priceId' => $priceId,
-                'title' => $this->stringValue($plan['title'] ?? null) ?? $planKey,
+                'title' => $this->translateText($this->stringValue($plan['title'] ?? null) ?? $planKey),
                 'priceLabel' => $this->stringValue($plan['price_label'] ?? null) ?? '',
-                'intervalLabel' => $this->stringValue($plan['interval_label'] ?? null) ?? '',
-                'description' => $this->stringValue($plan['description'] ?? null) ?? '',
-                'features' => $this->stringList($plan['features'] ?? []),
+                'intervalLabel' => $this->translateText($this->stringValue($plan['interval_label'] ?? null) ?? ''),
+                'description' => $this->translateText($this->stringValue($plan['description'] ?? null) ?? ''),
+                'features' => $this->translatedStringList($plan['features'] ?? []),
                 'featureFlags' => $this->stringList($plan['feature_flags'] ?? []),
                 'limits' => $this->limits($plan['limits'] ?? []),
                 'highlighted' => (bool) ($plan['highlighted'] ?? false),
@@ -131,10 +131,10 @@ class PlanService
                 'key' => 'active_stripe_plan',
                 'billingMode' => 'stripe',
                 'priceId' => $activePriceId,
-                'title' => 'Active Stripe Plan',
+                'title' => __('Active Stripe Plan'),
                 'priceLabel' => '',
                 'intervalLabel' => '',
-                'description' => 'A Stripe plan active on this workspace.',
+                'description' => __('A Stripe plan active on this workspace.'),
                 'features' => [],
                 'featureFlags' => $this->defaultStripeFeatureFlags(),
                 'limits' => [
@@ -296,6 +296,15 @@ class PlanService
         return $value === '' ? null : $value;
     }
 
+    private function translateText(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        return __($value);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -308,6 +317,17 @@ class PlanService
         return collect($value)
             ->filter(static fn (mixed $item): bool => is_string($item) && trim($item) !== '')
             ->map(static fn (string $item): string => trim($item))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function translatedStringList(mixed $value): array
+    {
+        return collect($this->stringList($value))
+            ->map(static fn (string $item): string => __($item))
             ->values()
             ->all();
     }

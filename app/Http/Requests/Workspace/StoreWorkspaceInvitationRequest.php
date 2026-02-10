@@ -38,10 +38,10 @@ class StoreWorkspaceInvitationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'Enter an email address to send the invitation.',
-            'email.email' => 'Enter a valid email address.',
-            'role.required' => 'Choose a role for the invite.',
-            'role.in' => 'Choose a valid role for the invite.',
+            'email.required' => __('Enter an email address to send the invitation.'),
+            'email.email' => __('Enter a valid email address.'),
+            'role.required' => __('Choose a role for the invite.'),
+            'role.in' => __('Choose a valid role for the invite.'),
         ];
     }
 }

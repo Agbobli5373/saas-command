@@ -52,9 +52,9 @@ class ReadinessService
 
         return [
             'key' => 'failed_jobs',
-            'label' => 'Failed jobs',
+            'label' => __('Failed jobs'),
             'status' => $status,
-            'summary' => sprintf('%d failed jobs currently stored.', $count),
+            'summary' => __(':count failed jobs currently stored.', ['count' => $count]),
             'value' => $count,
         ];
     }
@@ -67,9 +67,9 @@ class ReadinessService
         if (! is_string($workspace->stripe_id) || $workspace->stripe_id === '') {
             return [
                 'key' => 'stripe_webhook_queue',
-                'label' => 'Stripe webhook queue',
+                'label' => __('Stripe webhook queue'),
                 'status' => 'pass',
-                'summary' => 'No Stripe customer connected for this workspace.',
+                'summary' => __('No Stripe customer connected for this workspace.'),
                 'value' => null,
             ];
         }
@@ -86,11 +86,14 @@ class ReadinessService
 
         return [
             'key' => 'stripe_webhook_queue',
-            'label' => 'Stripe webhook queue',
+            'label' => __('Stripe webhook queue'),
             'status' => $staleQueuedEvents > 0 ? 'warning' : 'pass',
             'summary' => $staleQueuedEvents > 0
-                ? sprintf('%d queued Stripe webhook events are older than %d minutes.', $staleQueuedEvents, $staleMinutes)
-                : 'No stale Stripe webhook events are pending.',
+                ? __(':count queued Stripe webhook events are older than :minutes minutes.', [
+                    'count' => $staleQueuedEvents,
+                    'minutes' => $staleMinutes,
+                ])
+                : __('No stale Stripe webhook events are pending.'),
             'value' => $staleQueuedEvents,
         ];
     }
@@ -103,9 +106,9 @@ class ReadinessService
         if (! is_string($workspace->stripe_id) || $workspace->stripe_id === '') {
             return [
                 'key' => 'stripe_webhook_failures',
-                'label' => 'Stripe webhook failures',
+                'label' => __('Stripe webhook failures'),
                 'status' => 'pass',
-                'summary' => 'No Stripe customer connected for this workspace.',
+                'summary' => __('No Stripe customer connected for this workspace.'),
                 'value' => null,
             ];
         }
@@ -122,11 +125,16 @@ class ReadinessService
 
         return [
             'key' => 'stripe_webhook_failures',
-            'label' => 'Stripe webhook failures',
+            'label' => __('Stripe webhook failures'),
             'status' => $failedEvents > 0 ? 'warning' : 'pass',
             'summary' => $failedEvents > 0
-                ? sprintf('%d Stripe webhook events failed in the last %d hours.', $failedEvents, $lookbackHours)
-                : sprintf('No failed Stripe webhooks in the last %d hours.', $lookbackHours),
+                ? __(':count Stripe webhook events failed in the last :hours hours.', [
+                    'count' => $failedEvents,
+                    'hours' => $lookbackHours,
+                ])
+                : __('No failed Stripe webhooks in the last :hours hours.', [
+                    'hours' => $lookbackHours,
+                ]),
             'value' => $failedEvents,
         ];
     }
@@ -141,9 +149,9 @@ class ReadinessService
         if ($healthFile === '') {
             return [
                 'key' => 'backup_freshness',
-                'label' => 'Backup freshness',
+                'label' => __('Backup freshness'),
                 'status' => 'fail',
-                'summary' => 'Backup health file is not configured.',
+                'summary' => __('Backup health file is not configured.'),
                 'value' => null,
             ];
         }
@@ -151,9 +159,9 @@ class ReadinessService
         if (! is_file($healthFile)) {
             return [
                 'key' => 'backup_freshness',
-                'label' => 'Backup freshness',
+                'label' => __('Backup freshness'),
                 'status' => 'fail',
-                'summary' => sprintf('Backup health file is missing at %s.', $healthFile),
+                'summary' => __('Backup health file is missing at :path.', ['path' => $healthFile]),
                 'value' => null,
             ];
         }
@@ -163,9 +171,9 @@ class ReadinessService
         if (! is_int($modifiedAt)) {
             return [
                 'key' => 'backup_freshness',
-                'label' => 'Backup freshness',
+                'label' => __('Backup freshness'),
                 'status' => 'fail',
-                'summary' => 'Unable to read backup health file timestamp.',
+                'summary' => __('Unable to read backup health file timestamp.'),
                 'value' => null,
             ];
         }
@@ -176,22 +184,23 @@ class ReadinessService
         if ($lastSuccess->lt(now()->subHours($maxAgeHours))) {
             return [
                 'key' => 'backup_freshness',
-                'label' => 'Backup freshness',
+                'label' => __('Backup freshness'),
                 'status' => 'fail',
-                'summary' => sprintf(
-                    'Latest backup marker is older than %d hours (%s).',
-                    $maxAgeHours,
-                    $lastSuccess->toDateTimeString()
-                ),
+                'summary' => __('Latest backup marker is older than :hours hours (:datetime).', [
+                    'hours' => $maxAgeHours,
+                    'datetime' => $lastSuccess->toDateTimeString(),
+                ]),
                 'value' => $lastSuccess->toIso8601String(),
             ];
         }
 
         return [
             'key' => 'backup_freshness',
-            'label' => 'Backup freshness',
+            'label' => __('Backup freshness'),
             'status' => 'pass',
-            'summary' => sprintf('Latest backup marker updated at %s.', $lastSuccess->toDateTimeString()),
+            'summary' => __('Latest backup marker updated at :datetime.', [
+                'datetime' => $lastSuccess->toDateTimeString(),
+            ]),
             'value' => $lastSuccess->toIso8601String(),
         ];
     }

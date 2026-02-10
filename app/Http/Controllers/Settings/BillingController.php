@@ -77,7 +77,7 @@ class BillingController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('billing.edit')->with('status', 'Create or join a workspace before subscribing.');
+            return to_route('billing.edit')->with('status', __('Create or join a workspace before subscribing.'));
         }
 
         $this->authorize('manageBilling', $workspace);
@@ -86,17 +86,17 @@ class BillingController extends Controller
         $plan = $plans->checkoutPlans()[$planKey] ?? null;
 
         if (! is_array($plan)) {
-            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+            return to_route('billing.edit')->with('status', __('Invalid plan selected.'));
         }
 
         $priceId = $plan['priceId'] ?? null;
 
         if (! is_string($priceId) || $priceId === '') {
-            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+            return to_route('billing.edit')->with('status', __('Invalid plan selected.'));
         }
 
         if ($workspace->subscribed('default')) {
-            return to_route('billing.edit')->with('status', 'You already have an active subscription.');
+            return to_route('billing.edit')->with('status', __('You already have an active subscription.'));
         }
 
         try {
@@ -112,8 +112,10 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'checkout_started',
-                title: 'Checkout started',
-                description: sprintf('Stripe checkout was started for %s.', $plan['title']),
+                title: __('Checkout started'),
+                description: __('Stripe checkout was started for :plan.', [
+                    'plan' => $plan['title'],
+                ]),
                 context: [
                     'plan_key' => $plan['key'],
                     'price_id' => $priceId,
@@ -133,8 +135,8 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'checkout_start_failed',
-                title: 'Checkout failed to start',
-                description: 'Stripe checkout could not be started.',
+                title: __('Checkout failed to start'),
+                description: __('Stripe checkout could not be started.'),
                 severity: 'error',
                 context: [
                     'plan_key' => $plan['key'],
@@ -143,7 +145,7 @@ class BillingController extends Controller
                 ],
             );
 
-            return to_route('billing.edit')->with('status', 'Unable to start checkout right now.');
+            return to_route('billing.edit')->with('status', __('Unable to start checkout right now.'));
         }
     }
 
@@ -155,7 +157,7 @@ class BillingController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('billing.edit')->with('status', 'Create or join a workspace before managing billing.');
+            return to_route('billing.edit')->with('status', __('Create or join a workspace before managing billing.'));
         }
 
         $this->authorize('manageBilling', $workspace);
@@ -168,8 +170,8 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'billing_portal_opened',
-                title: 'Billing portal opened',
-                description: 'Stripe customer portal was opened.',
+                title: __('Billing portal opened'),
+                description: __('Stripe customer portal was opened.'),
             );
 
             return Inertia::location($portalUrl);
@@ -179,15 +181,15 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'billing_portal_open_failed',
-                title: 'Billing portal failed to open',
-                description: 'Stripe customer portal could not be opened.',
+                title: __('Billing portal failed to open'),
+                description: __('Stripe customer portal could not be opened.'),
                 severity: 'error',
                 context: [
                     'error' => $exception->getMessage(),
                 ],
             );
 
-            return to_route('billing.edit')->with('status', 'Unable to open billing portal right now.');
+            return to_route('billing.edit')->with('status', __('Unable to open billing portal right now.'));
         }
     }
 
@@ -204,7 +206,7 @@ class BillingController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('billing.edit')->with('status', 'Create or join a workspace before changing plans.');
+            return to_route('billing.edit')->with('status', __('Create or join a workspace before changing plans.'));
         }
 
         $this->authorize('manageBilling', $workspace);
@@ -213,13 +215,13 @@ class BillingController extends Controller
         $plan = $plans->checkoutPlans()[$planKey] ?? null;
 
         if (! is_array($plan)) {
-            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+            return to_route('billing.edit')->with('status', __('Invalid plan selected.'));
         }
 
         $priceId = $plan['priceId'] ?? null;
 
         if (! is_string($priceId) || $priceId === '') {
-            return to_route('billing.edit')->with('status', 'Invalid plan selected.');
+            return to_route('billing.edit')->with('status', __('Invalid plan selected.'));
         }
 
         try {
@@ -230,8 +232,10 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_swapped',
-                title: 'Subscription plan changed',
-                description: sprintf('Subscription was changed to %s.', $plan['title']),
+                title: __('Subscription plan changed'),
+                description: __('Subscription was changed to :plan.', [
+                    'plan' => $plan['title'],
+                ]),
                 context: [
                     'plan_key' => $plan['key'],
                     'price_id' => $priceId,
@@ -244,15 +248,15 @@ class BillingController extends Controller
                 'price_id' => $priceId,
             ]);
 
-            return to_route('billing.edit')->with('status', 'Your subscription has been updated.');
+            return to_route('billing.edit')->with('status', __('Your subscription has been updated.'));
         } catch (Throwable $exception) {
             $this->logAuditEvent(
                 auditLogger: $auditLogger,
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_swap_failed',
-                title: 'Subscription change failed',
-                description: 'Subscription plan could not be updated.',
+                title: __('Subscription change failed'),
+                description: __('Subscription plan could not be updated.'),
                 severity: 'error',
                 context: [
                     'plan_key' => $plan['key'],
@@ -261,7 +265,7 @@ class BillingController extends Controller
                 ],
             );
 
-            return to_route('billing.edit')->with('status', 'Unable to update your subscription right now.');
+            return to_route('billing.edit')->with('status', __('Unable to update your subscription right now.'));
         }
     }
 
@@ -277,7 +281,7 @@ class BillingController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('billing.edit')->with('status', 'Create or join a workspace before cancelling billing.');
+            return to_route('billing.edit')->with('status', __('Create or join a workspace before cancelling billing.'));
         }
 
         $this->authorize('manageBilling', $workspace);
@@ -290,30 +294,30 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_cancelled',
-                title: 'Subscription cancelled',
-                description: 'Subscription was cancelled and moved to grace period.',
+                title: __('Subscription cancelled'),
+                description: __('Subscription was cancelled and moved to grace period.'),
             );
 
             $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.subscription.cancelled', [
                 'workspace_id' => $workspace->id,
             ]);
 
-            return to_route('billing.edit')->with('status', 'Your subscription will end at the current period.');
+            return to_route('billing.edit')->with('status', __('Your subscription will end at the current period.'));
         } catch (Throwable $exception) {
             $this->logAuditEvent(
                 auditLogger: $auditLogger,
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_cancel_failed',
-                title: 'Subscription cancellation failed',
-                description: 'Subscription could not be cancelled.',
+                title: __('Subscription cancellation failed'),
+                description: __('Subscription could not be cancelled.'),
                 severity: 'error',
                 context: [
                     'error' => $exception->getMessage(),
                 ],
             );
 
-            return to_route('billing.edit')->with('status', 'Unable to cancel your subscription right now.');
+            return to_route('billing.edit')->with('status', __('Unable to cancel your subscription right now.'));
         }
     }
 
@@ -329,7 +333,7 @@ class BillingController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('billing.edit')->with('status', 'Create or join a workspace before resuming billing.');
+            return to_route('billing.edit')->with('status', __('Create or join a workspace before resuming billing.'));
         }
 
         $this->authorize('manageBilling', $workspace);
@@ -342,30 +346,30 @@ class BillingController extends Controller
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_resumed',
-                title: 'Subscription resumed',
-                description: 'Subscription was resumed during grace period.',
+                title: __('Subscription resumed'),
+                description: __('Subscription was resumed during grace period.'),
             );
 
             $this->dispatchWorkspaceWebhook($webhooks, $workspace, 'billing.subscription.resumed', [
                 'workspace_id' => $workspace->id,
             ]);
 
-            return to_route('billing.edit')->with('status', 'Your subscription has been resumed.');
+            return to_route('billing.edit')->with('status', __('Your subscription has been resumed.'));
         } catch (Throwable $exception) {
             $this->logAuditEvent(
                 auditLogger: $auditLogger,
                 workspace: $workspace,
                 actorId: $request->user()->id,
                 eventType: 'subscription_resume_failed',
-                title: 'Subscription resume failed',
-                description: 'Subscription could not be resumed.',
+                title: __('Subscription resume failed'),
+                description: __('Subscription could not be resumed.'),
                 severity: 'error',
                 context: [
                     'error' => $exception->getMessage(),
                 ],
             );
 
-            return to_route('billing.edit')->with('status', 'Unable to resume your subscription right now.');
+            return to_route('billing.edit')->with('status', __('Unable to resume your subscription right now.'));
         }
     }
 
@@ -473,7 +477,7 @@ class BillingController extends Controller
 
         return [
             'status' => 'warning',
-            'message' => 'Recent payment attempt failed. Ask the customer to update their payment method.',
+            'message' => __('Recent payment attempt failed. Ask the customer to update their payment method.'),
             'occurredAt' => $failedEvent->created_at->toIso8601String(),
         ];
     }

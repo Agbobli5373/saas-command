@@ -34,8 +34,8 @@ class BillingCheckoutRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'plan.required' => 'Select a paid plan before continuing to checkout.',
-            'plan.in' => 'Select a valid paid plan before continuing to checkout.',
+            'plan.required' => __('Select a paid plan before continuing to checkout.'),
+            'plan.in' => __('Select a valid paid plan before continuing to checkout.'),
         ];
     }
 

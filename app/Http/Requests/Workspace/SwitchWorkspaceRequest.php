@@ -37,9 +37,9 @@ class SwitchWorkspaceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'workspace_id.required' => 'Select a workspace before switching.',
-            'workspace_id.integer' => 'Select a valid workspace before switching.',
-            'workspace_id.exists' => 'Select an existing workspace before switching.',
+            'workspace_id.required' => __('Select a workspace before switching.'),
+            'workspace_id.integer' => __('Select a valid workspace before switching.'),
+            'workspace_id.exists' => __('Select an existing workspace before switching.'),
         ];
     }
 }

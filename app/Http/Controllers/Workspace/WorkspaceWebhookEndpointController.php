@@ -18,7 +18,7 @@ class WorkspaceWebhookEndpointController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('workspace')->with('status', 'No active workspace selected.');
+            return to_route('workspace')->with('status', __('No active workspace selected.'));
         }
 
         $workspace->webhookEndpoints()->create([
@@ -33,7 +33,7 @@ class WorkspaceWebhookEndpointController extends Controller
             'is_active' => true,
         ]);
 
-        return to_route('workspace')->with('status', 'Webhook endpoint created.');
+        return to_route('workspace')->with('status', __('Webhook endpoint created.'));
     }
 
     /**
@@ -46,7 +46,7 @@ class WorkspaceWebhookEndpointController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('workspace')->with('status', 'No active workspace selected.');
+            return to_route('workspace')->with('status', __('No active workspace selected.'));
         }
 
         if ($endpoint->workspace_id !== $workspace->id) {
@@ -57,6 +57,6 @@ class WorkspaceWebhookEndpointController extends Controller
             'is_active' => false,
         ])->save();
 
-        return to_route('workspace')->with('status', 'Webhook endpoint disabled.');
+        return to_route('workspace')->with('status', __('Webhook endpoint disabled.'));
     }
 }

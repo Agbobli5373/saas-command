@@ -86,11 +86,10 @@ class AppServiceProvider extends ServiceProvider
             $priceId = trim((string) ($plan['price_id'] ?? ''));
 
             if ($priceId === '') {
-                $warnings[] = sprintf(
-                    'Stripe price for "%s" is missing. Set %s in your .env.',
-                    $plan['title'] ?? $planKey,
-                    strtoupper('stripe_price_'.$planKey)
-                );
+                $warnings[] = __('Stripe price for ":plan" is missing. Set :env in your .env.', [
+                    'plan' => (string) ($plan['title'] ?? $planKey),
+                    'env' => strtoupper('stripe_price_'.$planKey),
+                ]);
 
                 continue;
             }
@@ -103,16 +102,16 @@ class AppServiceProvider extends ServiceProvider
             $stripeSecret = config('services.stripe.secret');
 
             if (! is_string($stripeKey) || $stripeKey === '') {
-                $warnings[] = 'Stripe publishable key is missing. Set STRIPE_KEY in your .env.';
+                $warnings[] = __('Stripe publishable key is missing. Set STRIPE_KEY in your .env.');
             }
 
             if (! is_string($stripeSecret) || $stripeSecret === '') {
-                $warnings[] = 'Stripe secret key is missing. Set STRIPE_SECRET in your .env.';
+                $warnings[] = __('Stripe secret key is missing. Set STRIPE_SECRET in your .env.');
             }
         }
 
         if (count($priceIds) !== count(array_unique($priceIds))) {
-            $warnings[] = 'Monthly and yearly plans must use different Stripe price IDs.';
+            $warnings[] = __('Monthly and yearly plans must use different Stripe price IDs.');
         }
 
         config()->set('services.stripe.warnings', $warnings);

@@ -20,6 +20,6 @@ class CurrentWorkspaceController extends Controller
 
         $request->user()->switchWorkspace($workspace);
 
-        return back()->with('status', 'Workspace switched.');
+        return back()->with('status', __('Workspace switched.'));
     }
 }

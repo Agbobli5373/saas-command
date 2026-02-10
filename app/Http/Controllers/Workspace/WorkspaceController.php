@@ -138,7 +138,7 @@ class WorkspaceController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('workspace')->with('status', 'No active workspace selected.');
+            return to_route('workspace')->with('status', __('No active workspace selected.'));
         }
 
         $this->authorize('manageMembers', $workspace);
@@ -148,7 +148,7 @@ class WorkspaceController extends Controller
         }
 
         if ($member->id === $workspace->owner_id) {
-            return back()->with('status', 'Transfer ownership instead of changing the owner role.');
+            return back()->with('status', __('Transfer ownership instead of changing the owner role.'));
         }
 
         $role = WorkspaceRole::from((string) $request->validated('role'));
@@ -165,7 +165,10 @@ class WorkspaceController extends Controller
             report($exception);
         }
 
-        return back()->with('status', sprintf('%s role updated to %s.', $member->name, $role->value));
+        return back()->with('status', __(':name role updated to :role.', [
+            'name' => $member->name,
+            'role' => $role->value,
+        ]));
     }
 
     /**
@@ -179,7 +182,7 @@ class WorkspaceController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('workspace')->with('status', 'No active workspace selected.');
+            return to_route('workspace')->with('status', __('No active workspace selected.'));
         }
 
         $this->authorize('manageMembers', $workspace);
@@ -189,11 +192,11 @@ class WorkspaceController extends Controller
         }
 
         if ($member->id === $workspace->owner_id) {
-            return back()->with('status', 'Transfer ownership before removing the owner.');
+            return back()->with('status', __('Transfer ownership before removing the owner.'));
         }
 
         if ($member->id === $request->user()->id) {
-            return back()->with('status', 'You cannot remove your own membership from this screen.');
+            return back()->with('status', __('You cannot remove your own membership from this screen.'));
         }
 
         $workspace->removeMember($member);
@@ -207,7 +210,9 @@ class WorkspaceController extends Controller
             report($exception);
         }
 
-        return back()->with('status', sprintf('%s removed from workspace.', $member->name));
+        return back()->with('status', __(':name removed from workspace.', [
+            'name' => $member->name,
+        ]));
     }
 
     /**
@@ -220,7 +225,7 @@ class WorkspaceController extends Controller
         $workspace = $request->user()->activeWorkspace();
 
         if ($workspace === null) {
-            return to_route('workspace')->with('status', 'No active workspace selected.');
+            return to_route('workspace')->with('status', __('No active workspace selected.'));
         }
 
         $this->authorize('transferOwnership', $workspace);
@@ -228,11 +233,11 @@ class WorkspaceController extends Controller
         $newOwner = User::query()->findOrFail((int) $request->validated('owner_id'));
 
         if (! $workspace->members()->where('users.id', $newOwner->id)->exists()) {
-            return back()->with('status', 'Select a current member to transfer ownership.');
+            return back()->with('status', __('Select a current member to transfer ownership.'));
         }
 
         if (! $workspace->transferOwnershipTo($newOwner)) {
-            return back()->with('status', 'Ownership transfer could not be completed.');
+            return back()->with('status', __('Ownership transfer could not be completed.'));
         }
 
         try {
@@ -244,6 +249,8 @@ class WorkspaceController extends Controller
             report($exception);
         }
 
-        return back()->with('status', sprintf('Workspace ownership transferred to %s.', $newOwner->name));
+        return back()->with('status', __('Workspace ownership transferred to :name.', [
+            'name' => $newOwner->name,
+        ]));
     }
 }

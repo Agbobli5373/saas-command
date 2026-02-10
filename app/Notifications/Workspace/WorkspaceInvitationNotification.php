@@ -37,15 +37,19 @@ class WorkspaceInvitationNotification extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $roleLabel = ucfirst($this->role);
+        $roleLabel = __($this->role === 'admin' ? 'Admin' : 'Member');
 
         return (new MailMessage)
-            ->subject(sprintf('Invitation to join %s', $this->workspaceName))
-            ->greeting('You are invited')
-            ->line(sprintf('%s invited you to join "%s" as %s.', $this->invitedByName, $this->workspaceName, $roleLabel))
-            ->line(sprintf('This invite expires on %s.', $this->expiresAt->toDayDateTimeString()))
-            ->action('Accept invitation', $this->acceptUrl)
-            ->line('Sign in with this email address to accept the invite.');
+            ->subject(__('Invitation to join :workspace', ['workspace' => $this->workspaceName]))
+            ->greeting(__('You are invited'))
+            ->line(__(':name invited you to join ":workspace" as :role.', [
+                'name' => $this->invitedByName,
+                'workspace' => $this->workspaceName,
+                'role' => $roleLabel,
+            ]))
+            ->line(__('This invite expires on :date.', ['date' => $this->expiresAt->toDayDateTimeString()]))
+            ->action(__('Accept invitation'), $this->acceptUrl)
+            ->line(__('Sign in with this email address to accept the invite.'));
     }
 
     /**

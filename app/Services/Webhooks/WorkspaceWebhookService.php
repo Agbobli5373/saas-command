@@ -49,15 +49,15 @@ class WorkspaceWebhookService
     public static function supportedEvents(): array
     {
         return [
-            'workspace.invitation.sent' => 'Workspace invitation sent',
-            'workspace.member.joined' => 'Workspace member joined',
-            'workspace.member.removed' => 'Workspace member removed',
-            'workspace.member.role_updated' => 'Workspace member role updated',
-            'workspace.ownership.transferred' => 'Workspace ownership transferred',
-            'billing.checkout.started' => 'Billing checkout started',
-            'billing.subscription.updated' => 'Billing subscription updated',
-            'billing.subscription.cancelled' => 'Billing subscription cancelled',
-            'billing.subscription.resumed' => 'Billing subscription resumed',
+            'workspace.invitation.sent' => __('Workspace invitation sent'),
+            'workspace.member.joined' => __('Workspace member joined'),
+            'workspace.member.removed' => __('Workspace member removed'),
+            'workspace.member.role_updated' => __('Workspace member role updated'),
+            'workspace.ownership.transferred' => __('Workspace ownership transferred'),
+            'billing.checkout.started' => __('Billing checkout started'),
+            'billing.subscription.updated' => __('Billing subscription updated'),
+            'billing.subscription.cancelled' => __('Billing subscription cancelled'),
+            'billing.subscription.resumed' => __('Billing subscription resumed'),
         ];
     }
 

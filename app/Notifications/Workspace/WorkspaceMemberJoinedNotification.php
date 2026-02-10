@@ -35,8 +35,11 @@ class WorkspaceMemberJoinedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'title' => 'New teammate joined',
-            'message' => sprintf('%s joined %s.', $this->memberName, $this->workspaceName),
+            'title' => __('New teammate joined'),
+            'message' => __(':member joined :workspace.', [
+                'member' => $this->memberName,
+                'workspace' => $this->workspaceName,
+            ]),
             'action_url' => route('workspace'),
         ];
     }

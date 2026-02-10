@@ -43,7 +43,7 @@ class StoreWorkspaceWebhookEndpointRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'events.*.in' => 'Select a valid webhook event type.',
+            'events.*.in' => __('Select a valid webhook event type.'),
         ];
     }
 }

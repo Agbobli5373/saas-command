@@ -59,26 +59,28 @@ class OnboardingController extends Controller
         if ($workspace->subscribed('default')) {
             $user->markOnboardingCompleted();
 
-            return to_route('dashboard')->with('status', 'Onboarding completed.');
+            return to_route('dashboard')->with('status', __('Onboarding completed.'));
         }
 
         $planKey = $request->validated('plan');
         $plan = $plans->find($planKey);
 
         if (! is_array($plan)) {
-            return to_route('onboarding.show')->with('status', 'Invalid plan selected.');
+            return to_route('onboarding.show')->with('status', __('Invalid plan selected.'));
         }
 
         if ($plan['billingMode'] === 'free') {
             $user->markOnboardingCompleted();
 
-            return to_route('dashboard')->with('status', sprintf('Onboarding completed on %s plan.', $plan['title']));
+            return to_route('dashboard')->with('status', __('Onboarding completed on :plan plan.', [
+                'plan' => $plan['title'],
+            ]));
         }
 
         $priceId = $plan['priceId'];
 
         if (! is_string($priceId) || $priceId === '') {
-            return to_route('onboarding.show')->with('status', 'Invalid plan selected.');
+            return to_route('onboarding.show')->with('status', __('Invalid plan selected.'));
         }
 
         try {
@@ -91,7 +93,7 @@ class OnboardingController extends Controller
 
             return Inertia::location($checkoutUrl);
         } catch (Throwable) {
-            return to_route('onboarding.show')->with('status', 'Unable to start checkout right now.');
+            return to_route('onboarding.show')->with('status', __('Unable to start checkout right now.'));
         }
     }
 

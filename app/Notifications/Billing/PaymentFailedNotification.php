@@ -31,12 +31,12 @@ class PaymentFailedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Payment failed for your subscription')
-            ->greeting('Action required')
-            ->line('We could not process your latest subscription payment.')
-            ->line('Update your payment method to keep your subscription active.')
-            ->action('Open Billing Settings', route('billing.edit'))
-            ->line('Event reference: '.$this->stripeEventId);
+            ->subject(__('Payment failed for your subscription'))
+            ->greeting(__('Action required'))
+            ->line(__('We could not process your latest subscription payment.'))
+            ->line(__('Update your payment method to keep your subscription active.'))
+            ->action(__('Open Billing Settings'), route('billing.edit'))
+            ->line(__('Event reference: :event', ['event' => $this->stripeEventId]));
     }
 
     /**
@@ -47,8 +47,8 @@ class PaymentFailedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'title' => 'Payment failed',
-            'message' => 'Your latest subscription payment failed. Update your payment method to continue service.',
+            'title' => __('Payment failed'),
+            'message' => __('Your latest subscription payment failed. Update your payment method to continue service.'),
             'stripe_event_id' => $this->stripeEventId,
             'action_url' => route('billing.edit'),
         ];

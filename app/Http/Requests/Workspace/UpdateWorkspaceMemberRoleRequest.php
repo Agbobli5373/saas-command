@@ -37,8 +37,8 @@ class UpdateWorkspaceMemberRoleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'role.required' => 'Choose a role before saving member changes.',
-            'role.in' => 'Choose a valid role before saving member changes.',
+            'role.required' => __('Choose a role before saving member changes.'),
+            'role.in' => __('Choose a valid role before saving member changes.'),
         ];
     }
 }

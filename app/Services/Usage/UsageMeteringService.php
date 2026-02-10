@@ -173,7 +173,7 @@ class UsageMeteringService
         return [
             'start' => $periodStart->toDateString(),
             'end' => $periodStart->endOfMonth()->toDateString(),
-            'label' => $periodStart->format('F Y'),
+            'label' => $periodStart->translatedFormat('F Y'),
         ];
     }
 
@@ -238,8 +238,8 @@ class UsageMeteringService
 
             $metrics[$metricKey] = [
                 'key' => $metricKey,
-                'title' => $this->stringValue($metric['title'] ?? null) ?? $this->fallbackTitle($metricKey),
-                'description' => $this->stringValue($metric['description'] ?? null),
+                'title' => __($this->stringValue($metric['title'] ?? null) ?? $this->fallbackTitle($metricKey)),
+                'description' => $this->translateNullableString($metric['description'] ?? null),
                 'limitKey' => $this->stringValue($metric['limit_key'] ?? null),
             ];
         }
@@ -261,5 +261,16 @@ class UsageMeteringService
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function translateNullableString(mixed $value): ?string
+    {
+        $normalized = $this->stringValue($value);
+
+        if ($normalized === null) {
+            return null;
+        }
+
+        return __($normalized);
     }
 }

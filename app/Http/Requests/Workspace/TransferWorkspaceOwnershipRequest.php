@@ -37,8 +37,8 @@ class TransferWorkspaceOwnershipRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'owner_id.required' => 'Select a member to transfer ownership.',
-            'owner_id.exists' => 'Select a valid member to transfer ownership.',
+            'owner_id.required' => __('Select a member to transfer ownership.'),
+            'owner_id.exists' => __('Select a valid member to transfer ownership.'),
         ];
     }
 }

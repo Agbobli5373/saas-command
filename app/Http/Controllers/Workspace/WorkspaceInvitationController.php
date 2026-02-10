@@ -32,7 +32,7 @@ class WorkspaceInvitationController extends Controller
         $workspace = $user->activeWorkspace();
 
         if ($workspace === null) {
-            return back()->with('status', 'No active workspace selected.');
+            return back()->with('status', __('No active workspace selected.'));
         }
 
         $inviteMembers = $entitlements->inviteMembers(
@@ -57,7 +57,7 @@ class WorkspaceInvitationController extends Controller
             ->exists();
 
         if ($alreadyMember) {
-            return back()->with('status', 'This user is already a member of your workspace.');
+            return back()->with('status', __('This user is already a member of your workspace.'));
         }
 
         $workspace->invitations()
@@ -105,7 +105,9 @@ class WorkspaceInvitationController extends Controller
             report($exception);
         }
 
-        return back()->with('status', sprintf('Invitation sent to %s.', $email));
+        return back()->with('status', __('Invitation sent to :email.', [
+            'email' => $email,
+        ]));
     }
 
     /**
@@ -123,25 +125,25 @@ class WorkspaceInvitationController extends Controller
             ->first();
 
         if ($invitation === null) {
-            return to_route('dashboard')->with('status', 'Invitation not found.');
+            return to_route('dashboard')->with('status', __('Invitation not found.'));
         }
 
         if ($invitation->accepted_at !== null) {
-            return to_route('dashboard')->with('status', 'Invitation already accepted.');
+            return to_route('dashboard')->with('status', __('Invitation already accepted.'));
         }
 
         if ($invitation->isExpired()) {
-            return to_route('dashboard')->with('status', 'Invitation has expired.');
+            return to_route('dashboard')->with('status', __('Invitation has expired.'));
         }
 
         if ($request->user()->cannot('accept', $invitation)) {
-            return to_route('dashboard')->with('status', 'This invitation is for a different email address.');
+            return to_route('dashboard')->with('status', __('This invitation is for a different email address.'));
         }
 
         $workspace = $invitation->workspace;
 
         if ($plans->hasReachedSeatLimit($workspace)) {
-            return to_route('dashboard')->with('status', 'Workspace seat limit reached. Ask the owner to upgrade first.');
+            return to_route('dashboard')->with('status', __('Workspace seat limit reached. Ask the owner to upgrade first.'));
         }
 
         $workspace->addMember($request->user(), $invitation->roleEnum());
@@ -170,6 +172,8 @@ class WorkspaceInvitationController extends Controller
             report($exception);
         }
 
-        return to_route('workspace')->with('status', sprintf('You joined %s.', $workspace->name));
+        return to_route('workspace')->with('status', __('You joined :workspace.', [
+            'workspace' => $workspace->name,
+        ]));
     }
 }

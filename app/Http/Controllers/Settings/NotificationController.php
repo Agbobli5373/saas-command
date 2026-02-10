@@ -60,7 +60,7 @@ class NotificationController extends Controller
             $userNotification->markAsRead();
         }
 
-        return back()->with('status', 'Notification marked as read.');
+        return back()->with('status', __('Notification marked as read.'));
     }
 
     /**
@@ -70,6 +70,6 @@ class NotificationController extends Controller
     {
         $request->user()->unreadNotifications->markAsRead();
 
-        return back()->with('status', 'All notifications marked as read.');
+        return back()->with('status', __('All notifications marked as read.'));
     }
 }
