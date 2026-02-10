@@ -7,7 +7,9 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import LocaleSwitcher from '@/components/locale-switcher';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
+import { useI18n } from '@/hooks/use-i18n';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import { update as updateCurrentWorkspace } from '@/routes/workspaces/current';
@@ -20,6 +22,7 @@ type Props = {
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
     const { auth } = usePage<SharedData>().props;
+    const { t } = useI18n();
 
     const handleLogout = () => {
         cleanup();
@@ -58,7 +61,7 @@ export function UserMenuContent({ user }: Props) {
                         onClick={cleanup}
                     >
                         <Settings className="mr-2" />
-                        Settings
+                        {t('Settings')}
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -84,6 +87,14 @@ export function UserMenuContent({ user }: Props) {
                 </>
             ) : null}
             <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+                <LocaleSwitcher
+                    variant="stacked"
+                    className="px-1"
+                    onSwitched={cleanup}
+                />
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link
                     className="block w-full cursor-pointer"
@@ -93,7 +104,7 @@ export function UserMenuContent({ user }: Props) {
                     data-test="logout-button"
                 >
                     <LogOut className="mr-2" />
-                    Log out
+                    {t('Log out')}
                 </Link>
             </DropdownMenuItem>
         </>
