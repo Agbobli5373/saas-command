@@ -4,6 +4,7 @@ import Heading from '@/components/heading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useI18n } from '@/hooks/use-i18n';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { show } from '@/routes/operations';
@@ -26,13 +27,6 @@ type OperationsProps = {
     overallStatus: ReadinessStatus;
     checks: ReadinessCheck[];
 };
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Operations readiness',
-        href: show().url,
-    },
-];
 
 function statusBadgeVariant(status: ReadinessStatus): 'default' | 'secondary' | 'destructive' {
     if (status === 'fail') {
@@ -65,24 +59,35 @@ export default function Operations({
     overallStatus,
     checks,
 }: OperationsProps) {
+    const { t, formatDateTime } = useI18n();
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: t('Operations readiness'),
+            href: show().url,
+        },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Operations readiness" />
+            <Head title={t('Operations readiness')} />
 
-            <h1 className="sr-only">Operations Readiness</h1>
+            <h1 className="sr-only">{t('Operations Readiness')}</h1>
 
             <SettingsLayout>
                 <div className="space-y-6">
                     <Heading
                         variant="small"
-                        title="Production readiness"
-                        description={`Operational checks for ${workspaceName}`}
+                        title={t('Production readiness')}
+                        description={t('Operational checks for :workspace', {
+                            workspace: workspaceName,
+                        })}
                     />
 
                     {status ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
-                            <AlertTitle>Operations update</AlertTitle>
+                            <AlertTitle>{t('Operations update')}</AlertTitle>
                             <AlertDescription>{status}</AlertDescription>
                         </Alert>
                     ) : null}
@@ -91,15 +96,15 @@ export default function Operations({
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 {statusIcon(overallStatus)}
-                                Readiness summary
+                                {t('Readiness summary')}
                             </CardTitle>
                             <CardDescription>
-                                Last checked {new Date(checkedAt).toLocaleString()}
+                                {t('Last checked :time', { time: formatDateTime(checkedAt) })}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Badge variant={statusBadgeVariant(overallStatus)} className="capitalize">
-                                {overallStatus}
+                                {t(overallStatus)}
                             </Badge>
                         </CardContent>
                     </Card>
@@ -111,7 +116,7 @@ export default function Operations({
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <CardTitle className="text-base">{check.label}</CardTitle>
                                         <Badge variant={statusBadgeVariant(check.status)} className="capitalize">
-                                            {check.status}
+                                            {t(check.status)}
                                         </Badge>
                                     </div>
                                     <CardDescription>{check.summary}</CardDescription>

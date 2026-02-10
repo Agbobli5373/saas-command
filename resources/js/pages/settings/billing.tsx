@@ -14,6 +14,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useI18n } from '@/hooks/use-i18n';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/billing';
@@ -110,20 +111,7 @@ type BillingProps = {
 };
 
 type InvoiceFilter = 'all' | 'paid' | 'open' | 'failed';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Billing settings',
-        href: edit().url,
-    },
-];
-
-const invoiceFilterLabels: Record<InvoiceFilter, string> = {
-    all: 'All',
-    paid: 'Paid',
-    open: 'Open',
-    failed: 'Failed',
-};
+type AuditSeverity = 'info' | 'warning' | 'error';
 
 const failedStatuses = new Set(['uncollectible', 'void']);
 const openStatuses = new Set(['open', 'draft']);
@@ -149,7 +137,34 @@ export default function Billing({
     invoices,
     auditTimeline,
 }: BillingProps) {
+    const { t, formatDate, formatDateTime } = useI18n();
     const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: t('Billing settings'),
+            href: edit().url,
+        },
+    ];
+
+    const invoiceFilterLabels: Record<InvoiceFilter, string> = {
+        all: t('All'),
+        paid: t('Paid'),
+        open: t('Open'),
+        failed: t('Failed'),
+    };
+    const invoiceStatusLabels: Record<string, string> = {
+        paid: t('paid'),
+        open: t('open'),
+        draft: t('draft'),
+        uncollectible: t('uncollectible'),
+        void: t('void'),
+    };
+    const severityLabels: Record<AuditSeverity, string> = {
+        info: t('info'),
+        warning: t('warning'),
+        error: t('error'),
+    };
 
     const paidPlans = useMemo(
         () => plans.filter((plan) => plan.billingMode === 'stripe' && plan.priceId !== null),
@@ -176,22 +191,22 @@ export default function Billing({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Billing settings" />
+            <Head title={t('Billing settings')} />
 
-            <h1 className="sr-only">Billing Settings</h1>
+            <h1 className="sr-only">{t('Billing Settings')}</h1>
 
             <SettingsLayout>
                 <div className="space-y-8">
                     <Heading
                         variant="small"
-                        title="Billing & Subscription"
-                        description="Control plans, renewals, and Stripe customer billing from one place"
+                        title={t('Billing & Subscription')}
+                        description={t('Control plans, renewals, and Stripe customer billing from one place')}
                     />
 
                     {status ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
-                            <AlertTitle>Billing update</AlertTitle>
+                            <AlertTitle>{t('Billing update')}</AlertTitle>
                             <AlertDescription>{status}</AlertDescription>
                         </Alert>
                     ) : null}
@@ -199,15 +214,14 @@ export default function Billing({
                     {webhookOutcome ? (
                         <Alert variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Payment attention required</AlertTitle>
+                            <AlertTitle>{t('Payment attention required')}</AlertTitle>
                             <AlertDescription>
-                                {webhookOutcome.message} Last update on{' '}
-                                {new Date(webhookOutcome.occurredAt).toLocaleString()}.
+                                {webhookOutcome.message} {t('Last update on')} {formatDateTime(webhookOutcome.occurredAt)}.
                                 <div className="mt-3">
                                     <Form {...BillingController.portal.form()}>
                                         {({ processing }) => (
                                             <Button size="sm" disabled={processing || !isSubscribed}>
-                                                Update payment method
+                                                {t('Update payment method')}
                                             </Button>
                                         )}
                                     </Form>
@@ -219,7 +233,7 @@ export default function Billing({
                     {stripeConfigWarnings.map((warning) => (
                         <Alert key={warning} variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Stripe configuration warning</AlertTitle>
+                            <AlertTitle>{t('Stripe configuration warning')}</AlertTitle>
                             <AlertDescription>{warning}</AlertDescription>
                         </Alert>
                     ))}
@@ -228,37 +242,40 @@ export default function Billing({
                         <CardHeader className="gap-5">
                             <div className="flex items-center justify-between gap-4">
                                 <div>
-                                    <CardTitle className="text-xl">Current subscription</CardTitle>
+                                    <CardTitle className="text-xl">{t('Current subscription')}</CardTitle>
                                     <CardDescription className="mt-1">
                                         {isSubscribed
-                                            ? 'Your workspace has an active Stripe subscription.'
+                                            ? t('Your workspace has an active Stripe subscription.')
                                             : currentPlanBillingMode === 'free'
-                                              ? 'Your workspace is on the free tier with no Stripe billing required.'
-                                              : 'No active subscription on this account yet.'}
+                                              ? t('Your workspace is on the free tier with no Stripe billing required.')
+                                              : t('No active subscription on this account yet.')}
                                     </CardDescription>
                                 </div>
 
                                 <Badge variant={isSubscribed ? 'default' : 'outline'}>
-                                    {isSubscribed ? 'Active' : 'Inactive'}
+                                    {isSubscribed ? t('Active') : t('Inactive')}
                                 </Badge>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                                {currentPlanTitle ? <Badge variant="secondary">Plan: {currentPlanTitle}</Badge> : null}
-                                {onGracePeriod ? <Badge variant="secondary">Grace period</Badge> : null}
-                                <Badge variant="outline">{seatCount} active seats</Badge>
-                                <Badge variant="outline">{billedSeatCount} billed seats</Badge>
+                                {currentPlanTitle ? <Badge variant="secondary">{t('Plan: :plan', { plan: currentPlanTitle })}</Badge> : null}
+                                {onGracePeriod ? <Badge variant="secondary">{t('Grace period')}</Badge> : null}
+                                <Badge variant="outline">{t(':count active seats', { count: seatCount })}</Badge>
+                                <Badge variant="outline">{t(':count billed seats', { count: billedSeatCount })}</Badge>
                                 {seatLimit !== null ? (
                                     <Badge variant="outline">
-                                        Seat capacity {seatCount}/{seatLimit}
+                                        {t('Seat capacity :used/:limit', {
+                                            used: seatCount,
+                                            limit: seatLimit,
+                                        })}
                                     </Badge>
                                 ) : null}
                                 {remainingSeatCapacity !== null ? (
-                                    <span>{remainingSeatCapacity} seats available</span>
+                                    <span>{t(':count seats available', { count: remainingSeatCapacity })}</span>
                                 ) : null}
                                 {endsAt ? (
                                     <span>
-                                        Renews until {new Date(endsAt).toLocaleDateString()}
+                                        {t('Renews until :date', { date: formatDate(endsAt) })}
                                     </span>
                                 ) : null}
                             </div>
@@ -271,7 +288,7 @@ export default function Billing({
                                         <>
                                             <input type="hidden" name="plan" value={defaultPaidPlan} />
                                             <Button disabled={processing || isSubscribed}>
-                                                Start subscription
+                                                {t('Start subscription')}
                                             </Button>
                                         </>
                                     )}
@@ -282,7 +299,7 @@ export default function Billing({
                                 {({ processing }) => (
                                     <Button variant="outline" disabled={processing || !isSubscribed}>
                                         <CreditCard className="h-4 w-4" />
-                                        Open customer portal
+                                        {t('Open customer portal')}
                                     </Button>
                                 )}
                             </Form>
@@ -290,7 +307,7 @@ export default function Billing({
                             <Form {...BillingController.cancel.form()}>
                                 {({ processing }) => (
                                     <Button variant="destructive" disabled={processing || !isSubscribed || onGracePeriod}>
-                                        Cancel subscription
+                                        {t('Cancel subscription')}
                                     </Button>
                                 )}
                             </Form>
@@ -298,7 +315,7 @@ export default function Billing({
                             <Form {...BillingController.resume.form()}>
                                 {({ processing }) => (
                                     <Button variant="secondary" disabled={processing || !onGracePeriod}>
-                                        Resume subscription
+                                        {t('Resume subscription')}
                                     </Button>
                                 )}
                             </Form>
@@ -307,15 +324,15 @@ export default function Billing({
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Usage this period</CardTitle>
+                            <CardTitle>{t('Usage this period')}</CardTitle>
                             <CardDescription>
-                                Metered usage for {usagePeriod.label}.
+                                {t('Metered usage for :period.', { period: usagePeriod.label })}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {usageMetrics.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No usage metrics configured for this workspace.
+                                    {t('No usage metrics configured for this workspace.')}
                                 </p>
                             ) : (
                                 usageMetrics.map((metric) => (
@@ -329,8 +346,11 @@ export default function Billing({
                                                 variant={metric.isExceeded ? 'destructive' : 'outline'}
                                             >
                                                 {metric.isUnlimited
-                                                    ? `${metric.used} used`
-                                                    : `${metric.used}/${metric.quota}`}
+                                                    ? t(':count used', { count: metric.used })
+                                                    : t(':used/:quota', {
+                                                        used: metric.used,
+                                                        quota: metric.quota ?? 0,
+                                                    })}
                                             </Badge>
                                         </div>
                                         {metric.description ? (
@@ -351,12 +371,14 @@ export default function Billing({
                                                     />
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {metric.remaining ?? 0} remaining
+                                                    {t(':count remaining', {
+                                                        count: metric.remaining ?? 0,
+                                                    })}
                                                 </p>
                                             </div>
                                         ) : (
                                             <p className="text-xs text-muted-foreground">
-                                                Unlimited usage on the current plan.
+                                                {t('Unlimited usage on the current plan.')}
                                             </p>
                                         )}
                                     </div>
@@ -367,15 +389,15 @@ export default function Billing({
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Billing audit timeline</CardTitle>
+                            <CardTitle>{t('Billing audit timeline')}</CardTitle>
                             <CardDescription>
-                                Recent billing actions and Stripe events for this workspace.
+                                {t('Recent billing actions and Stripe events for this workspace.')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {auditTimeline.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No billing audit events yet.
+                                    {t('No billing audit events yet.')}
                                 </p>
                             ) : (
                                 auditTimeline.map((event) => (
@@ -386,11 +408,11 @@ export default function Billing({
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <p className="text-sm font-medium">{event.title}</p>
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline">{event.source}</Badge>
+                                                <Badge variant="outline">{t(event.source)}</Badge>
                                                 <Badge
                                                     variant={event.severity === 'error' ? 'destructive' : 'secondary'}
                                                 >
-                                                    {event.severity}
+                                                    {severityLabels[event.severity as AuditSeverity] ?? event.severity}
                                                 </Badge>
                                             </div>
                                         </div>
@@ -401,8 +423,8 @@ export default function Billing({
                                         ) : null}
                                         <p className="text-xs text-muted-foreground">
                                             {event.occurredAt
-                                                ? new Date(event.occurredAt).toLocaleString()
-                                                : 'Unknown time'}
+                                                ? formatDateTime(event.occurredAt)
+                                                : t('Unknown time')}
                                             {event.actor ? ` . ${event.actor.name}` : ''}
                                         </p>
                                     </div>
@@ -414,9 +436,9 @@ export default function Billing({
                     <Card>
                         <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
-                                <CardTitle>Invoice history</CardTitle>
+                                <CardTitle>{t('Invoice history')}</CardTitle>
                                 <CardDescription>
-                                    Recent billing invoices from your Stripe customer account.
+                                    {t('Recent billing invoices from your Stripe customer account.')}
                                 </CardDescription>
                             </div>
 
@@ -437,7 +459,7 @@ export default function Billing({
                         <CardContent className="space-y-3">
                             {filteredInvoices.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No invoices found for the selected filter.
+                                    {t('No invoices found for the selected filter.')}
                                 </p>
                             ) : (
                                 filteredInvoices.map((invoice) => (
@@ -450,13 +472,13 @@ export default function Billing({
                                                 {invoice.number ?? invoice.id}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {new Date(invoice.date).toLocaleDateString()} . {invoice.currency}
+                                                {formatDate(invoice.date)} . {invoice.currency}
                                             </p>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Badge variant={invoice.status === 'paid' ? 'default' : 'outline'}>
-                                                {invoice.status}
+                                                {invoiceStatusLabels[invoice.status] ?? invoice.status}
                                             </Badge>
                                             <span className="text-sm font-medium">{invoice.total}</span>
                                             {invoice.hostedInvoiceUrl ? (
@@ -466,7 +488,7 @@ export default function Billing({
                                                     rel="noreferrer"
                                                     className="text-sm text-primary underline underline-offset-4"
                                                 >
-                                                    View
+                                                    {t('View')}
                                                 </a>
                                             ) : null}
                                             {invoice.invoicePdfUrl ? (
@@ -477,7 +499,7 @@ export default function Billing({
                                                     className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-4"
                                                 >
                                                     <Receipt className="h-3.5 w-3.5" />
-                                                    PDF
+                                                    {t('PDF')}
                                                 </a>
                                             ) : null}
                                         </div>
@@ -490,10 +512,9 @@ export default function Billing({
                     {paidPlans.length === 0 ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
-                            <AlertTitle>No paid plans configured</AlertTitle>
+                            <AlertTitle>{t('No paid plans configured')}</AlertTitle>
                             <AlertDescription>
-                                Add `STRIPE_PRICE_STARTER_MONTHLY` and `STRIPE_PRICE_STARTER_YEARLY` to your `.env`,
-                                then run `php artisan config:clear`.
+                                {t('Add `STRIPE_PRICE_STARTER_MONTHLY` and `STRIPE_PRICE_STARTER_YEARLY` to your `.env`, then run `php artisan config:clear`.')}
                             </AlertDescription>
                         </Alert>
                     ) : null}
@@ -513,9 +534,9 @@ export default function Billing({
                                         <div className="flex items-center justify-between gap-2">
                                             <CardTitle>{plan.title}</CardTitle>
                                             {isCurrentPlan ? (
-                                                <Badge>Current</Badge>
+                                                <Badge>{t('Current')}</Badge>
                                             ) : plan.highlighted ? (
-                                                <Badge variant="secondary">Popular</Badge>
+                                                <Badge variant="secondary">{t('Popular')}</Badge>
                                             ) : null}
                                         </div>
 
@@ -543,7 +564,7 @@ export default function Billing({
                                     <CardFooter>
                                         {plan.billingMode === 'free' ? (
                                             <Button className="w-full" variant="outline" disabled>
-                                                {isCurrentPlan ? 'Current plan' : 'Available without checkout'}
+                                                {isCurrentPlan ? t('Current plan') : t('Available without checkout')}
                                             </Button>
                                         ) : !isSubscribed ? (
                                             <Form {...BillingController.checkout.form()} className="w-full">
@@ -551,7 +572,7 @@ export default function Billing({
                                                     <>
                                                         <input type="hidden" name="plan" value={plan.key} />
                                                         <Button className="w-full" disabled={processing || isCurrentPlan}>
-                                                            Start with {plan.title}
+                                                            {t('Start with :plan', { plan: plan.title })}
                                                         </Button>
                                                     </>
                                                 )}
@@ -566,7 +587,7 @@ export default function Billing({
                                                             className="w-full"
                                                             disabled={processing || isCurrentPlan}
                                                         >
-                                                            Switch to {plan.title}
+                                                            {t('Switch to :plan', { plan: plan.title })}
                                                         </Button>
                                                     </>
                                                 )}

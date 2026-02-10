@@ -9,6 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useI18n } from '@/hooks/use-i18n';
 import { regenerateRecoveryCodes } from '@/routes/two-factor';
 import AlertError from './alert-error';
 
@@ -23,6 +24,7 @@ export default function TwoFactorRecoveryCodes({
     fetchRecoveryCodes,
     errors,
 }: Props) {
+    const { t } = useI18n();
     const [codesAreVisible, setCodesAreVisible] = useState<boolean>(false);
     const codesSectionRef = useRef<HTMLDivElement | null>(null);
     const canRegenerateCodes = recoveryCodesList.length > 0 && codesAreVisible;
@@ -57,11 +59,10 @@ export default function TwoFactorRecoveryCodes({
             <CardHeader>
                 <CardTitle className="flex gap-3">
                     <LockKeyhole className="size-4" aria-hidden="true" />
-                    2FA Recovery Codes
+                    {t('2FA Recovery Codes')}
                 </CardTitle>
                 <CardDescription>
-                    Recovery codes let you regain access if you lose your 2FA
-                    device. Store them in a secure password manager.
+                    {t('Recovery codes let you regain access if you lose your 2FA device. Store them in a secure password manager.')}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -76,7 +77,7 @@ export default function TwoFactorRecoveryCodes({
                             className="size-4"
                             aria-hidden="true"
                         />
-                        {codesAreVisible ? 'Hide' : 'View'} Recovery Codes
+                        {codesAreVisible ? t('Hide') : t('View')} {t('Recovery Codes')}
                     </Button>
 
                     {canRegenerateCodes && (
@@ -92,7 +93,7 @@ export default function TwoFactorRecoveryCodes({
                                     disabled={processing}
                                     aria-describedby="regenerate-warning"
                                 >
-                                    <RefreshCw /> Regenerate Codes
+                                    <RefreshCw /> {t('Regenerate Codes')}
                                 </Button>
                             )}
                         </Form>
@@ -145,13 +146,11 @@ export default function TwoFactorRecoveryCodes({
 
                                 <div className="text-xs text-muted-foreground select-none">
                                     <p id="regenerate-warning">
-                                        Each recovery code can be used once to
-                                        access your account and will be removed
-                                        after use. If you need more, click{' '}
+                                        {t('Each recovery code can be used once to access your account and will be removed after use. If you need more, click')}{' '}
                                         <span className="font-bold">
-                                            Regenerate Codes
+                                            {t('Regenerate Codes')}
                                         </span>{' '}
-                                        above.
+                                        {t('above.')}
                                     </p>
                                 </div>
                             </>

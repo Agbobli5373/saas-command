@@ -6,17 +6,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useI18n } from '@/hooks/use-i18n';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { index } from '@/routes/notifications';
 import type { BreadcrumbItem } from '@/types';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Notification settings',
-        href: index().url,
-    },
-];
 
 type NotificationItem = {
     id: string;
@@ -39,24 +33,33 @@ export default function NotificationCenter({
     unreadCount,
     notifications,
 }: NotificationCenterProps) {
+    const { t, formatDateTime } = useI18n();
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: t('Notification settings'),
+            href: index().url,
+        },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Notifications" />
+            <Head title={t('Notifications')} />
 
-            <h1 className="sr-only">Notification Center</h1>
+            <h1 className="sr-only">{t('Notification Center')}</h1>
 
             <SettingsLayout>
                 <div className="space-y-6">
                     <Heading
                         variant="small"
-                        title="Notifications"
-                        description="Track billing and workspace events in one place"
+                        title={t('Notifications')}
+                        description={t('Track billing and workspace events in one place')}
                     />
 
                     {status ? (
                         <Alert>
                             <CircleAlert className="h-4 w-4" />
-                            <AlertTitle>Notification update</AlertTitle>
+                            <AlertTitle>{t('Notification update')}</AlertTitle>
                             <AlertDescription>{status}</AlertDescription>
                         </Alert>
                     ) : null}
@@ -66,10 +69,13 @@ export default function NotificationCenter({
                             <div>
                                 <CardTitle className="flex items-center gap-2">
                                     <Bell className="h-5 w-5" />
-                                    Account notification center
+                                    {t('Account notification center')}
                                 </CardTitle>
                                 <CardDescription>
-                                    You have {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}.
+                                    {t('You have :count unread :label.', {
+                                        count: unreadCount,
+                                        label: unreadCount === 1 ? t('notification') : t('notifications'),
+                                    })}
                                 </CardDescription>
                             </div>
 
@@ -77,7 +83,7 @@ export default function NotificationCenter({
                                 {({ processing }) => (
                                     <Button variant="outline" disabled={processing || unreadCount === 0}>
                                         <CheckCheck className="h-4 w-4" />
-                                        Mark all read
+                                        {t('Mark all read')}
                                     </Button>
                                 )}
                             </Form>
@@ -86,7 +92,7 @@ export default function NotificationCenter({
                         <CardContent className="space-y-3">
                             {notifications.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No notifications yet.
+                                    {t('No notifications yet.')}
                                 </p>
                             ) : (
                                 notifications.map((notification) => (
@@ -105,15 +111,15 @@ export default function NotificationCenter({
                                             </div>
 
                                             <Badge variant={notification.readAt ? 'outline' : 'default'}>
-                                                {notification.readAt ? 'Read' : 'Unread'}
+                                                {notification.readAt ? t('Read') : t('Unread')}
                                             </Badge>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                             <span>
                                                 {notification.createdAt
-                                                    ? new Date(notification.createdAt).toLocaleString()
-                                                    : 'Unknown time'}
+                                                    ? formatDateTime(notification.createdAt)
+                                                    : t('Unknown time')}
                                             </span>
 
                                             {notification.actionUrl ? (
@@ -121,7 +127,7 @@ export default function NotificationCenter({
                                                     href={notification.actionUrl}
                                                     className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-4"
                                                 >
-                                                    Open
+                                                    {t('Open')}
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
                                             ) : null}
@@ -131,7 +137,7 @@ export default function NotificationCenter({
                                             <Form {...NotificationController.read.form(notification.id)}>
                                                 {({ processing }) => (
                                                     <Button size="sm" variant="secondary" disabled={processing}>
-                                                        Mark as read
+                                                        {t('Mark as read')}
                                                     </Button>
                                                 )}
                                             </Form>

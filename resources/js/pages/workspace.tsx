@@ -11,16 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useI18n } from '@/hooks/use-i18n';
 import AppLayout from '@/layouts/app-layout';
-import { workspace } from '@/routes';
+import { workspace as workspaceRoute } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Workspace',
-        href: workspace().url,
-    },
-];
 
 type WorkspaceSummary = {
     id: number;
@@ -138,23 +132,31 @@ export default function Workspace({
     usagePeriod,
     usageMetrics,
 }: WorkspaceProps) {
+    const { t, formatDateTime } = useI18n();
     const canSubmitInvites = canInviteMembers;
     const ownershipCandidates = members.filter((member) => !member.isOwner);
 
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: t('Workspace'),
+            href: workspaceRoute().url,
+        },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Workspace" />
+            <Head title={t('Workspace')} />
 
             <div className="space-y-6 px-4 py-6">
                 <Heading
                     title={workspace.name}
-                    description="Manage your team members, seats, and invitations"
+                    description={t('Manage your team members, seats, and invitations')}
                 />
 
                 {status ? (
                     <Alert>
                         <CircleAlert className="h-4 w-4" />
-                        <AlertTitle>Workspace update</AlertTitle>
+                        <AlertTitle>{t('Workspace update')}</AlertTitle>
                         <AlertDescription>{status}</AlertDescription>
                     </Alert>
                 ) : null}
@@ -163,20 +165,25 @@ export default function Workspace({
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Users className="h-5 w-5" />
-                            Team members
+                            {t('Team members')}
                         </CardTitle>
                         <CardDescription>
-                            Current members in this workspace and their roles.
+                            {t('Current members in this workspace and their roles.')}
                         </CardDescription>
                         <div className="flex flex-wrap gap-2 pt-1">
-                            {plan.title ? <Badge variant="secondary">Plan: {plan.title}</Badge> : null}
-                            <Badge variant="outline">{seatCount} active seats</Badge>
-                            <Badge variant="outline">{billedSeatCount} billed seats</Badge>
+                            {plan.title ? <Badge variant="secondary">{t('Plan: :plan', { plan: plan.title })}</Badge> : null}
+                            <Badge variant="outline">{t(':count active seats', { count: seatCount })}</Badge>
+                            <Badge variant="outline">{t(':count billed seats', { count: billedSeatCount })}</Badge>
                             {seatLimit !== null ? (
-                                <Badge variant="outline">Seat capacity {seatCount}/{seatLimit}</Badge>
+                                <Badge variant="outline">
+                                    {t('Seat capacity :used/:limit', {
+                                        used: seatCount,
+                                        limit: seatLimit,
+                                    })}
+                                </Badge>
                             ) : null}
                             {remainingSeatCapacity !== null ? (
-                                <Badge variant="outline">{remainingSeatCapacity} seats available</Badge>
+                                <Badge variant="outline">{t(':count seats available', { count: remainingSeatCapacity })}</Badge>
                             ) : null}
                         </div>
                     </CardHeader>
@@ -192,7 +199,7 @@ export default function Workspace({
                                         <p className="text-xs text-muted-foreground">{member.email}</p>
                                     </div>
                                     <Badge variant="secondary" className="capitalize">
-                                        {member.role}
+                                        {member.isOwner ? t('Owner') : member.role === 'admin' ? t('Admin') : t('Member')}
                                     </Badge>
                                 </div>
 
@@ -207,11 +214,11 @@ export default function Workspace({
                                                         disabled={processing || member.isOwner}
                                                         className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
                                                     >
-                                                        <option value="member">Member</option>
-                                                        <option value="admin">Admin</option>
+                                                        <option value="member">{t('Member')}</option>
+                                                        <option value="admin">{t('Admin')}</option>
                                                     </select>
                                                     <Button size="sm" type="submit" disabled={processing || member.isOwner}>
-                                                        Save role
+                                                        {t('Save role')}
                                                     </Button>
                                                 </div>
                                             )}
@@ -225,7 +232,7 @@ export default function Workspace({
                                                     type="submit"
                                                     disabled={processing || member.isOwner || member.id === currentUserId}
                                                 >
-                                                    Remove member
+                                                    {t('Remove member')}
                                                 </Button>
                                             )}
                                         </Form>
@@ -238,15 +245,17 @@ export default function Workspace({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Usage this period</CardTitle>
+                        <CardTitle>{t('Usage this period')}</CardTitle>
                         <CardDescription>
-                            Metered workspace activity for {usagePeriod.label}.
+                            {t('Metered workspace activity for :period.', {
+                                period: usagePeriod.label,
+                            })}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {usageMetrics.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
-                                No usage metrics configured.
+                                {t('No usage metrics configured.')}
                             </p>
                         ) : (
                             usageMetrics.map((metric) => (
@@ -257,17 +266,22 @@ export default function Workspace({
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="text-sm font-medium">{metric.title}</p>
                                         <Badge variant={metric.isExceeded ? 'destructive' : 'outline'}>
-                                            {metric.isUnlimited ? `${metric.used} used` : `${metric.used}/${metric.quota}`}
+                                            {metric.isUnlimited
+                                                ? t(':count used', { count: metric.used })
+                                                : t(':used/:quota', {
+                                                    used: metric.used,
+                                                    quota: metric.quota ?? 0,
+                                                })}
                                         </Badge>
                                     </div>
                                     {metric.description ? (
                                         <p className="text-xs text-muted-foreground">{metric.description}</p>
                                     ) : null}
                                     {metric.isUnlimited ? (
-                                        <p className="text-xs text-muted-foreground">Unlimited on current plan.</p>
+                                        <p className="text-xs text-muted-foreground">{t('Unlimited on current plan.')}</p>
                                     ) : (
                                         <p className="text-xs text-muted-foreground">
-                                            {metric.remaining ?? 0} remaining this month.
+                                            {t(':count remaining this month.', { count: metric.remaining ?? 0 })}
                                         </p>
                                     )}
                                 </div>
@@ -279,9 +293,9 @@ export default function Workspace({
                 {canTransferOwnership ? (
                     <Card>
                         <CardHeader>
-                            <CardTitle>Transfer ownership</CardTitle>
+                            <CardTitle>{t('Transfer ownership')}</CardTitle>
                             <CardDescription>
-                                Move workspace ownership to another current member.
+                                {t('Move workspace ownership to another current member.')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -289,7 +303,8 @@ export default function Workspace({
                                 {({ processing, errors }) => (
                                     <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="owner_id">New owner</Label>
+                                            <Label htmlFor="owner_id">{t('New owner')}</Label>
+
                                             <select
                                                 id="owner_id"
                                                 name="owner_id"
@@ -305,7 +320,7 @@ export default function Workspace({
                                             <InputError message={errors.owner_id} />
                                         </div>
                                         <Button type="submit" disabled={processing || ownershipCandidates.length === 0}>
-                                            Transfer ownership
+                                            {t('Transfer ownership')}
                                         </Button>
                                     </div>
                                 )}
@@ -319,17 +334,17 @@ export default function Workspace({
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <MailPlus className="h-5 w-5" />
-                                Invite teammate
+                                {t('Invite teammate')}
                             </CardTitle>
                             <CardDescription>
-                                Send an email invite and assign a role.
+                                {t('Send an email invite and assign a role.')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {!canInviteMembers && inviteEntitlement.message ? (
                                 <Alert>
                                     <CircleAlert className="h-4 w-4" />
-                                    <AlertTitle>Invitations unavailable</AlertTitle>
+                                    <AlertTitle>{t('Invitations unavailable')}</AlertTitle>
                                     <AlertDescription>
                                         {inviteEntitlement.message}
                                     </AlertDescription>
@@ -340,33 +355,34 @@ export default function Workspace({
                                 {({ processing, errors }) => (
                                     <div className="grid gap-4 md:grid-cols-[1fr_180px_auto] md:items-end">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="invite-email">Email</Label>
+                                            <Label htmlFor="invite-email">{t('Email')}</Label>
+
                                             <Input
                                                 id="invite-email"
                                                 name="email"
                                                 type="email"
-                                                placeholder="teammate@example.com"
+                                                placeholder={t('teammate@example.com')}
                                                 autoComplete="off"
                                             />
                                             <InputError message={errors.email} />
                                         </div>
 
                                         <div className="grid gap-2">
-                                            <Label htmlFor="invite-role">Role</Label>
+                                            <Label htmlFor="invite-role">{t('Role')}</Label>
                                             <select
                                                 id="invite-role"
                                                 name="role"
                                                 defaultValue="member"
                                                 className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
                                             >
-                                                <option value="member">Member</option>
-                                                <option value="admin">Admin</option>
+                                                <option value="member">{t('Member')}</option>
+                                                <option value="admin">{t('Admin')}</option>
                                             </select>
                                             <InputError message={errors.role} />
                                         </div>
 
                                         <Button type="submit" disabled={processing || !canSubmitInvites}>
-                                            Send invite
+                                            {t('Send invite')}
                                         </Button>
                                     </div>
                                 )}
@@ -378,9 +394,9 @@ export default function Workspace({
                 {canManageWebhooks ? (
                     <Card>
                         <CardHeader>
-                            <CardTitle>Outbound webhooks</CardTitle>
+                            <CardTitle>{t('Outbound webhooks')}</CardTitle>
                             <CardDescription>
-                                Send signed events to integration endpoints with automatic retries.
+                                {t('Send signed events to integration endpoints with automatic retries.')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -388,22 +404,22 @@ export default function Workspace({
                                 {({ processing, errors }) => (
                                     <div className="grid gap-4 rounded-lg border border-border/60 p-4 md:grid-cols-2">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="webhook-name">Endpoint name</Label>
-                                            <Input id="webhook-name" name="name" placeholder="CRM Integration" />
+                                            <Label htmlFor="webhook-name">{t('Endpoint name')}</Label>
+                                            <Input id="webhook-name" name="name" placeholder={t('CRM Integration')} />
                                             <InputError message={errors.name} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="webhook-url">Destination URL</Label>
-                                            <Input id="webhook-url" name="url" placeholder="https://api.example.com/webhooks" />
+                                            <Label htmlFor="webhook-url">{t('Destination URL')}</Label>
+                                            <Input id="webhook-url" name="url" placeholder={t('https://api.example.com/webhooks')} />
                                             <InputError message={errors.url} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="webhook-secret">Signing secret</Label>
-                                            <Input id="webhook-secret" name="signing_secret" placeholder="whsec_..." />
+                                            <Label htmlFor="webhook-secret">{t('Signing secret')}</Label>
+                                            <Input id="webhook-secret" name="signing_secret" placeholder={t('whsec_...')} />
                                             <InputError message={errors.signing_secret} />
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="webhook-events">Events (select one or more)</Label>
+                                            <Label htmlFor="webhook-events">{t('Events (select one or more)')}</Label>
                                             <select
                                                 id="webhook-events"
                                                 name="events[]"
@@ -421,7 +437,7 @@ export default function Workspace({
                                         </div>
                                         <div className="md:col-span-2">
                                             <Button type="submit" disabled={processing}>
-                                                Add webhook endpoint
+                                                {t('Add webhook endpoint')}
                                             </Button>
                                         </div>
                                     </div>
@@ -430,7 +446,7 @@ export default function Workspace({
 
                             {webhookEndpoints.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    No webhook endpoints configured yet.
+                                    {t('No webhook endpoints configured yet.')}
                                 </p>
                             ) : (
                                 webhookEndpoints.map((endpoint) => (
@@ -441,28 +457,28 @@ export default function Workspace({
                                                 <p className="text-xs text-muted-foreground">{endpoint.url}</p>
                                             </div>
                                             <Badge variant={endpoint.isActive ? 'default' : 'outline'}>
-                                                {endpoint.isActive ? 'Active' : 'Disabled'}
+                                                {endpoint.isActive ? t('Active') : t('Disabled')}
                                             </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            Events: {endpoint.events.join(', ')}
+                                            {t('Events: :events', { events: endpoint.events.join(', ') })}
                                         </p>
                                         {endpoint.lastErrorMessage ? (
                                             <p className="text-xs text-destructive">
-                                                Last error: {endpoint.lastErrorMessage}
+                                                {t('Last error: :error', { error: endpoint.lastErrorMessage })}
                                             </p>
                                         ) : null}
                                         <p className="text-xs text-muted-foreground">
-                                            Failures: {endpoint.failureCount}
+                                            {t('Failures: :count', { count: endpoint.failureCount })}
                                             {endpoint.lastDispatchedAt
-                                                ? ` . Last delivered ${new Date(endpoint.lastDispatchedAt).toLocaleString()}`
+                                                ? ` . ${t('Last delivered :time', { time: formatDateTime(endpoint.lastDispatchedAt) })}`
                                                 : ''}
                                         </p>
                                         {endpoint.isActive ? (
                                             <Form {...WorkspaceWebhookEndpointController.destroy.form(endpoint.id)}>
                                                 {({ processing }) => (
                                                     <Button size="sm" variant="outline" type="submit" disabled={processing}>
-                                                        Disable endpoint
+                                                        {t('Disable endpoint')}
                                                     </Button>
                                                 )}
                                             </Form>
@@ -476,15 +492,15 @@ export default function Workspace({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Pending invitations</CardTitle>
+                        <CardTitle>{t('Pending invitations')}</CardTitle>
                         <CardDescription>
-                            Invitations that are still waiting for acceptance.
+                            {t('Invitations that are still waiting for acceptance.')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {pendingInvitations.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
-                                No pending invitations.
+                                {t('No pending invitations.')}
                             </p>
                         ) : (
                             pendingInvitations.map((invitation) => (
@@ -495,14 +511,14 @@ export default function Workspace({
                                     <div>
                                         <p className="text-sm font-medium">{invitation.email}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            Expires{' '}
+                                            {t('Expires')}{' '}
                                             {invitation.expiresAt
-                                                ? new Date(invitation.expiresAt).toLocaleString()
-                                                : 'Never'}
+                                                ? formatDateTime(invitation.expiresAt)
+                                                : t('Never')}
                                         </p>
                                     </div>
                                     <Badge variant="outline" className="capitalize">
-                                        {invitation.role}
+                                        {invitation.role === 'admin' ? t('Admin') : t('Member')}
                                     </Badge>
                                 </div>
                             ))
