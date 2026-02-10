@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Billing\StripeWebhookController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\Workspace\CurrentWorkspaceController;
 use App\Http\Controllers\Workspace\WorkspaceController;
@@ -11,6 +12,7 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 Route::post('stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->name('cashier.webhook');
+Route::post('locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::get('/', function () {
     return Inertia::render('welcome', [

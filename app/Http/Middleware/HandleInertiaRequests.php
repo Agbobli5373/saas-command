@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\FrontendTranslations;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -43,6 +45,9 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'locale' => App::currentLocale(),
+            'supportedLocales' => FrontendTranslations::supportedLocales(),
+            'translations' => FrontendTranslations::forLocale(App::currentLocale()),
             'auth' => [
                 'user' => $user,
                 'workspaces' => $workspaces,

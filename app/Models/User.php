@@ -25,6 +25,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'locale',
         'password',
         'current_workspace_id',
         'onboarding_completed_at',
