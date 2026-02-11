@@ -103,7 +103,6 @@ type WorkspaceProps = {
     seatCount: number;
     seatLimit: number | null;
     remainingSeatCapacity: number | null;
-    hasReachedSeatLimit: boolean;
     billedSeatCount: number;
     usagePeriod: UsagePeriod;
     usageMetrics: UsageMetric[];
@@ -127,7 +126,6 @@ export default function Workspace({
     seatCount,
     seatLimit,
     remainingSeatCapacity,
-    hasReachedSeatLimit,
     billedSeatCount,
     usagePeriod,
     usageMetrics,

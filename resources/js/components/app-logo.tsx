@@ -1,5 +1,5 @@
-import AppLogoIcon from './app-logo-icon';
 import { useI18n } from '@/hooks/use-i18n';
+import AppLogoIcon from './app-logo-icon';
 
 export default function AppLogo() {
     const { t } = useI18n();

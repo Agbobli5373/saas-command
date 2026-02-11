@@ -1,6 +1,6 @@
 import { AlertCircleIcon } from 'lucide-react';
-import { useI18n } from '@/hooks/use-i18n';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useI18n } from '@/hooks/use-i18n';
 
 export default function AlertError({
     errors,

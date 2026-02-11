@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import { Bell, CreditCard, LayoutGrid, Users } from 'lucide-react';
-import { useI18n } from '@/hooks/use-i18n';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -13,10 +12,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { edit } from '@/routes/billing';
+import { useI18n } from '@/hooks/use-i18n';
 import { dashboard } from '@/routes';
-import { index } from '@/routes/notifications';
 import { workspace } from '@/routes';
+import { edit } from '@/routes/billing';
+import { index } from '@/routes/notifications';
 import type { NavItem } from '@/types';
 import AppLogo from './app-logo';
 

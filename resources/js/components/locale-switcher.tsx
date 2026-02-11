@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
+import { useI18n } from '@/hooks/use-i18n';
 import { cn } from '@/lib/utils';
 import { update as updateLocale } from '@/routes/locale';
-import { useI18n } from '@/hooks/use-i18n';
 
 type Props = {
     variant?: 'inline' | 'stacked';

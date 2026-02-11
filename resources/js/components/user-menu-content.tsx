@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Building2, Check, LogOut, Settings } from 'lucide-react';
+import LocaleSwitcher from '@/components/locale-switcher';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -7,9 +8,8 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
-import LocaleSwitcher from '@/components/locale-switcher';
-import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import { update as updateCurrentWorkspace } from '@/routes/workspaces/current';
